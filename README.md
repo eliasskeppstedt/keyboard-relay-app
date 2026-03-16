@@ -9,8 +9,11 @@ customization accessible to everyone.
 Website is managed in this repository: https://github.com/eliasskeppstedt/keyboard-relay-website
 
 ## Current state
-No current "finished" versions of the full program yet. Work on the keystroke interception part of 
-the program has been started for Windows. 
+Work on daemon is started and should now support press modifications with virtual key codes and
+unicodes. A problem i encountered that i did not (yet hopefully 😅) solve is the key combo
+alt + shift + tab, or the combo used to tab over the windows backwards. It works when either alt
+or shift is native (not remapped), but not when both are synthetic. Since this does not work, there
+might be other shortcuts that does not work...
 
 ## Future (goals)
 The goal is to make this OS agnostic such that it can be used on whatever machine you are on and
