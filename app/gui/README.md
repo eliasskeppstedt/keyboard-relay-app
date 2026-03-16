@@ -1,2 +1,0 @@
-# App
-Have not started yet. Will be a gui for the user to put the keymap in, such that they dont need to fiddle around in the files when adding a keymap. Later there should also be options to change settings, ex the on hold timer.
