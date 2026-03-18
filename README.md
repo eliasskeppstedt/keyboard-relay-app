@@ -15,6 +15,43 @@ alt + shift + tab, or the combo used to tab over the windows backwards. It works
 or shift is native (not remapped), but not when both are synthetic. Since this does not work, there
 might be other shortcuts that does not work...
 
+Json integration is now done, meaning that the program will read the json file at the path you
+specify from your working dir. However I messed up the mapping on the website and it does not quite
+produce the correct output for my program. Here is an example of how the key object should look 
+like, mapping Q to Tab
+```json
+"keys": [
+    {
+        "code": "KeyQ",
+        "vkCode": 81,
+        "actions": [
+            {
+                "press": {
+                    "type": "VKC",
+                    "vkCode": 9
+                }
+            }
+        ]
+    }
+]
+```
+For reference, here is how the website generate the key objects
+```json
+"keys": [
+    {
+        "code": "KeyQ",
+        "action": {
+            "press": {
+                "type": "VKC",
+                "vkCode": [
+                    9
+                ]
+            }
+        }
+    }
+]
+```
+
 ## Future (goals)
 The goal is to make this OS agnostic such that it can be used on whatever machine you are on and
 with the same mapping configuration. It should support at least `press` and `hold` modifications, 

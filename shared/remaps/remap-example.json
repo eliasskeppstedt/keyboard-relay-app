@@ -1,0 +1,75 @@
+{
+  "remaps": {
+    "layers": [
+      {
+        "name": "Main",
+        "id": 0,
+        "config": {},
+        "keys": [
+          {
+            "code": "KeyQ",
+            "vkCode": 81,
+            "actions": [
+              {
+                "press": {
+                  "type": "VKC",
+                  "vkCode": 9
+                }
+              }
+            ]
+          },
+          {
+            "code": "KeyA",
+            "vkCode": 65,
+            "actions": [
+              {
+                "press": {
+                  "type": "VKC",
+                  "vkCode": 160
+                }
+              }
+            ]
+          },
+          {
+            "code": "KeyD",
+            "vkCode": 68,
+            "actions": [
+              {
+                "press": {
+                  "type": "VKC",
+                  "vkCode": 162
+                }
+              }
+            ]
+          },
+          {
+            "code": "KeyF",
+            "vkCode": 70,
+            "actions": [
+              {
+                "press": {
+                  "type": "VKC",
+                  "vkCode": 164
+                }
+              }
+            ]
+          },
+          {
+            "code": "KeyG",
+            "vkCode": 71,
+            "actions": [
+              {
+                "press": {
+                  "type": "VKC",
+                  "vkCode": 91
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "config": {},
+    "extras": []
+  }
+}

@@ -57,9 +57,6 @@ ReturnMsg runEventLoop()
 LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) 
 {
     KBDLLHOOKSTRUCT* kbDLLHookStruct = (KBDLLHOOKSTRUCT*)lParam;
-if (kbDLLHookStruct->vkCode == VK_TAB)
-{
-    }
     if (nCode < 0) goto CallNext;
     
 

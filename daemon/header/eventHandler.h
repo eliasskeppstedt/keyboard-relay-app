@@ -18,5 +18,6 @@ ReturnMsg sendUnicodeEvent(KeyEvent* event); // bara support för unicodes med 2
 void registerHotKeys();
 void printLastError();
 void resetModifiers(KeyStatus* keyMapStatus);
+void printKeyEvent(const KeyEvent* e);
 
 #endif // EVENTHANDLER_
