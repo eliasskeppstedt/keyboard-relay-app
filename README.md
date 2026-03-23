@@ -9,48 +9,24 @@ customization accessible to everyone.
 Website is managed in this repository: https://github.com/eliasskeppstedt/keyboard-relay-website
 
 ## Current state
-Work on daemon is started and should now support press modifications with virtual key codes and
-unicodes. A problem i encountered that i did not (yet hopefully 😅) solve is the key combo
-alt + shift + tab, or the combo used to tab over the windows backwards. It works when either alt
-or shift is native (not remapped), but not when both are synthetic. Since this does not work, there
-might be other shortcuts that does not work...
+Work on daemon is started and should now support press modifications with virtual key codes. 
+Cant get alt + shift + tab to work, when both alt and shift are synthetic. When holding synthetic
+alt and shift, tab is not even registred by the hook procedure, it is like windows is eating up
+the tab event. So for now, this combo will not work unless at least native alt or native shift
+is involved.
 
-Json integration is now done, meaning that the program will read the json file at the path you
-specify from your working dir. However I messed up the mapping on the website and it does not quite
-produce the correct output for my program. Here is an example of how the key object should look 
-like, mapping Q to Tab
-```json
-"keys": [
-    {
-        "code": "KeyQ",
-        "vkCode": 81,
-        "actions": [
-            {
-                "press": {
-                    "type": "VKC",
-                    "vkCode": 9
-                }
-            }
-        ]
-    }
-]
+JSON integration is in place, such that the website mapping tool now can be used to generate
+a functional mapping for the program. 
+
+## Run program
+
+Download and unzip the `keyboard-relay` folder. The program will be in that folder, which is also
+where you should put your mapping json files. Right click on an empty space in the folder and in 
+the menu select `Open in Terminal`. From there you should write  
 ```
-For reference, here is how the website generate the key objects
-```json
-"keys": [
-    {
-        "code": "KeyQ",
-        "action": {
-            "press": {
-                "type": "VKC",
-                "vkCode": [
-                    9
-                ]
-            }
-        }
-    }
-]
+./keyboard-relay.exe <file-name>.json
 ```
+where you replace `<file-name>.json` to the name of the mapping file you want to run.
 
 ## Future (goals)
 The goal is to make this OS agnostic such that it can be used on whatever machine you are on and

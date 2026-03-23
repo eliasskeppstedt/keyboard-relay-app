@@ -8,20 +8,27 @@
 ReturnMsg sendEvent(KeyEvent* event);
 bool EscSeqIsPressed = false;
 
-const uint32_t EscWin = 0x1B; // byt efter mutli os support
+const unsigned short EscWin = 0x1B; // byt efter mutli os support
 KeyMapping* KeyMapInfo; 
 KeyStatus* KeyMapStatus;
 
 ReturnMsg handleEvent(KeyEvent* incomingEvent) 
 {
+    if (!incomingEvent)
+    {
+        printf("Error: incoming event is null");
+        return RETURN_MSG_EVENT_NOT_FOUND;
+    }
+    
     if (incomingEvent->vkCode == EscWin) 
     {   
-        resetModifiers(KeyMapStatus);
+        resetModifiers(KeyMapInfo);
         free(incomingEvent);
         return RETURN_MSG_QUIT_BY_USER;
     }
 
     KeyEvent* outgoingEvent;
+    unsigned short originalVKCode = incomingEvent->vkCode;
 
     incomingEvent->type = KeyMapInfo[incomingEvent->vkCode].onPress.type;
     if (incomingEvent->type == KEYTYPE_UNICODE)
@@ -32,14 +39,13 @@ ReturnMsg handleEvent(KeyEvent* incomingEvent)
     {
         if (incomingEvent->type == KEYTYPE_VIRTUAL_KEYCODE)
         {
-            incomingEvent->vkCode = KeyMapInfo[incomingEvent->vkCode].onPress.code;
+            incomingEvent->vkCode = (unsigned short)KeyMapInfo[incomingEvent->vkCode].onPress.code;
         }
 
-        if (getModifier(incomingEvent->vkCode))
+        if (isModifier(incomingEvent->vkCode))
             incomingEvent->type = KEYTYPE_MODIFIER;
 
-            
-        KeyMapStatus[incomingEvent->vkCode] = (KeyStatus){
+        KeyMapStatus[originalVKCode] = (KeyStatus){
             .activeCode = incomingEvent->vkCode,
             .isActive = incomingEvent->keyDown
         };
@@ -48,7 +54,6 @@ ReturnMsg handleEvent(KeyEvent* incomingEvent)
     // hold functionality not implemented
 
     outgoingEvent = incomingEvent;
-
     return sendEvent(outgoingEvent);
 }
 
@@ -75,16 +80,17 @@ ReturnMsg sendEvent(KeyEvent* event)
     return returnMsg;
 }
 
-uint32_t getModifier(uint32_t vkCode)
+bool isModifier(unsigned short vkCode)
 {
     switch (vkCode)
     {
-    case LSHIFT: return LSHIFT;
-    case RSHIFT: return RSHIFT;
-    case LCTRL : return LCTRL;
-    case RCTRL : return RCTRL;
-    case LALT  : return LALT;
-    case RALT  : return RALT;
-    default    : return 0;
+    case LSHIFT: break;
+    case RSHIFT: break;
+    case LCTRL : break;
+    case RCTRL : break;
+    case LALT  : break;
+    case RALT  : break;
+    default    : return false;
     }
+    return true;
 }

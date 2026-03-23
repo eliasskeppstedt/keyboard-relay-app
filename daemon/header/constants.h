@@ -5,10 +5,9 @@
 
 #define PRINT_BOOL(bool) printf("%s\n", bool ? "true" : "false");
 #define INFO_EVENT_INJECTED 1
-#define VKC_COUNT 256
 
+#define VKC_COUNT 256
 #define NO_CODE 300
-#define VKC_MAX 256
 
 #ifdef _WIN32
 
@@ -29,6 +28,7 @@ typedef enum ModifierKeys{
     MODIFIERKEY_LEFT_ALT,
     MODIFIERKEY_RIGHT_ALT,
     MODIFIERKEY_COUNT,
+    MODIFIERKEY_NOT_MODIFIER,
 } ModifierKeys;
 
 typedef enum KeyType{
@@ -41,6 +41,7 @@ typedef enum KeyType{
 
 typedef enum ReturnMsg{
     RETURN_MSG_OK = 0,
+    RETURN_MSG_BAD_HOOK,
     RETURN_MSG_QUIT_BY_USER,
     RETURN_MSG_SYNT_EVENT,
     RETURN_MSG_SYNT_EVENT_FAILED,
@@ -51,6 +52,9 @@ typedef enum ReturnMsg{
     RETURN_MSG_MODIFIER_KEY,
     RETURN_MSG_KEY_UP,
     RETURN_MSG_RUN_ORIGINAL_EVENT,
+    RETURN_MSG_FILE_ERROR,
+    RETURN_MSG_JSON_ERROR,
+    RETURN_MSG_MODIFIER_ERROR,
     RETURN_MSG_COUNT
 } ReturnMsg;
 

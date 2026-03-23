@@ -5,11 +5,11 @@
 #include "../header/constants.h"
 #include "../lib/cJSON.h"
 
-bool loadFile(char* path);
+ReturnMsg loadFile(char* path);
 KeyMapping* initKeyMapInfo();
 KeyStatus* initKeyMapStatus();
 EventQueue* initEventQueue();
-int populateMappingTable(KeyMapping* keyMapInfo) ;
+ReturnMsg populateMappingTable(KeyMapping* keyMapInfo) ;
 void testWindows(KeyMapping* keyMapInfo);
 
 #endif // JSONHANDLER_H

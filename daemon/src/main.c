@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "../header/eventHandler.h"
+#include "../header/eventQueue.h"
 #include "../header/jsonHandler.h"
 #include "../lib/cJSON.h"
 
@@ -21,26 +22,44 @@ int main(int argc, char* argv[]) {
     }
     
     char* path = argv[1];
-    if (!loadFile(path))
-        return 1;
+    ReturnMsg returnMsg = loadFile(path);
+    if (returnMsg != RETURN_MSG_OK)
+        return returnMsg;
 
     KeyMapping* keyMapInfo = initKeyMapInfo();
-    KeyStatus* keyMapStatus = initKeyMapStatus();
-    EventQueue* eventQueue = calloc(1, sizeof(EventQueue));
-
     if (!keyMapInfo) 
         return 1;
+
+    KeyStatus* keyMapStatus = initKeyMapStatus();
     if (!keyMapStatus)
+    {
+        free(keyMapInfo);
         return 1;
+    }
+
+    EventQueue* eventQueue = calloc(1, sizeof(EventQueue));
+    if (!eventQueue)
+    {
+        printf("Error: calloc failed for eventQueue\n");
+        free(keyMapInfo);
+        free(keyMapStatus);
+        return 1;
+    }
+
     if (populateMappingTable(keyMapInfo))
+    {
+        free(keyMapInfo);
+        free(keyMapStatus);
+        free(eventQueue);
         return 1;
+    }
     
     setMaps(keyMapInfo, keyMapStatus);
     setQueue(eventQueue);
     
     atexit(cleanup);
 
-    ReturnMsg returnMsg = runEventLoop();
+    returnMsg = runEventLoop(keyMapStatus);
 
     free(keyMapStatus);
     free(keyMapInfo);

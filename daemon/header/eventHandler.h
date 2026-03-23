@@ -7,17 +7,16 @@
 
 ReturnMsg handleEvent(KeyEvent* event);
 void setMaps(KeyMapping* keyMapInfo, KeyStatus* keyMapStatus);
-uint32_t getModifier(uint32_t vkCode);
+bool isModifier(unsigned short vkCode);
 
 // implement in os specific event handfler //
 
-ReturnMsg runEventLoop();
+ReturnMsg runEventLoop(KeyStatus* keyMapStatus);
 KeyEvent* createEvent(void* osEvent);
 ReturnMsg sendVKCodeEvent(KeyEvent* event);
 ReturnMsg sendUnicodeEvent(KeyEvent* event); // bara support för unicodes med 2 code points atm
 void registerHotKeys();
 void printLastError();
-void resetModifiers(KeyStatus* keyMapStatus);
-void printKeyEvent(const KeyEvent* e);
+void resetModifiers(KeyMapping* keyMapInfo);
 
 #endif // EVENTHANDLER_

@@ -5,8 +5,8 @@ EventQueue* Queue;
 
 ReturnMsg push(KeyEvent* event)
 {
-    uint8_t oldHead = Queue->head;
-    uint8_t next = (oldHead + 1) % MAX_QUEUE_SIZE;
+    size_t oldHead = Queue->head;
+    size_t next = (oldHead + 1) % MAX_QUEUE_SIZE;
 
     if (next == Queue->tail) 
         return RETURN_MSG_QUEUE_FULL;
@@ -19,7 +19,7 @@ ReturnMsg push(KeyEvent* event)
 
 ReturnValue pop()
 {
-    uint8_t oldTail = Queue->tail;
+    size_t oldTail = Queue->tail;
     if (Queue->head == oldTail)
     {
         return (ReturnValue){

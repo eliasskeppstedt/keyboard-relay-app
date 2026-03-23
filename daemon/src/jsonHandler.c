@@ -1,67 +1,123 @@
 #include "stdlib.h"
 #include "string.h"
 #include "stdio.h"
-#include "../lib/cJSON.h"
+#include "ctype.h"
 #include "jsonHandler.h"
+#include "../lib/cJSON.h"
 
 cJSON* json;
 
-#define VKC_MAX 256
+// 10MB, crazy big file for this purpouse, maybe wrong file
+#define MAX_JSON_SIZE (10 * 1024 * 1024) 
 
-bool loadFile(char* path)
+ReturnMsg loadFile(char* fileName)
 {    
-    char* extension = ".json"; // inkludera andra filformat sen eller...
-    const int sizeExtension = strlen(extension);
-    int sizePath = strlen(path);
-    if (sizePath <= sizeExtension)
+    if (!fileName)
     {
-        printf("Error: pathname is too short, file name must be some name followed by %s\n", extension);
-        return NULL;
+        printf("Error: parameter 'fileName' is NULL\n");
+        return RETURN_MSG_FILE_ERROR;
     }
+    char* extension = ".json"; // inkludera andra filformat sen eller...
+    size_t sizeExtension = strlen(extension);
+    size_t sizeFileName = strlen(fileName);
     
-    char pathExtension[6]; // hårdkådat, vet funkar för .json\0 ...
-
-    for (int i = sizePath, j = sizeExtension; j >= 0; i--, j--)
+    if (sizeFileName <= sizeExtension)
     {
-        pathExtension[j] = path[i];
+        printf("Error: file name is too short, file name must be some name followed by %s\n", extension);
+        return RETURN_MSG_FILE_ERROR;
+    }
+
+    for (size_t i = 0; i < sizeFileName - sizeExtension; i++)
+    {
+        if (!(isalnum((unsigned char)fileName[i]) || fileName[i] == '-' || fileName[i] == '_')) {
+            printf("Error: only letters, numbers, '-' and '_' allowed in file name\n");
+            return RETURN_MSG_FILE_ERROR;
+        }
+    }
+
+    char pathExtension[6]; // hårdkådat, vet funkar för .json\0 ...
+    for (int i = (int)sizeFileName, j = (int)sizeExtension; j >= 0; i--, j--)
+    {
+        pathExtension[j] = fileName[i];
     }
 
     if (strcmp(pathExtension, extension) != 0)
     {
         printf("Error: pathname must end with %s\n", extension);
-        return NULL;
+        return RETURN_MSG_FILE_ERROR;
     }
+
+    char* destDir = "./";
+    char *path = malloc(strlen(destDir) + strlen(fileName) + 1);
+    if (!path)
+    {
+        printf("Error: malloc failed for path\n");
+        return RETURN_MSG_FILE_ERROR;
+    }
+    
+    strcpy(path, destDir);
+    strcat(path, fileName);
 
     FILE *f = fopen(path, "r");
+    free(path);
     if (!f)
     {
-        printf("Could not open file, is the path name correct?\n");
-        return NULL;
+        printf("Could not open file, \n - Is the file in keyboard-relay/mappings/?\n - Is it the correct file name?\n");
+        return RETURN_MSG_FILE_ERROR;
     }
 
-    uint32_t size = 0;
-    while (fgetc(f) != EOF)
-        size++;
-
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    if (size < 0) {
+        printf("Error: failed read file size\n");
+        fclose(f);
+        return RETURN_MSG_FILE_ERROR;
+    }
     rewind(f);
+    
+    if (size > MAX_JSON_SIZE) {
+        printf("Error: file is too large (%ld bytes)\n", size);
+        fclose(f);
+        return RETURN_MSG_FILE_ERROR;
+    }
 
     char *jsonString = malloc(size + 1);
+    if (!jsonString) {
+        printf("Error: mallock failed for jsonString\n");
+        fclose(f);
+        return RETURN_MSG_FILE_ERROR;
+    }
+
+    size_t read = fread(jsonString, sizeof(char), size, f);
+    if (read != (size_t)size) {
+        printf("Error: failed to read file into jsonString\n");
+        free(jsonString);
+        fclose(f);
+        return RETURN_MSG_FILE_ERROR;
+    }
+
     jsonString[size] = '\0';
-    fread(jsonString, sizeof(char), size, f);
     fclose(f);
 
     json = cJSON_Parse(jsonString);
     free(jsonString);
     if (!json)
-        return 1;
-    return true;
+        return RETURN_MSG_FILE_ERROR;
+    
+    return RETURN_MSG_OK;
 }
 
 KeyMapping* initKeyMapInfo()
 {
-    KeyMapping* keyMapInfo = malloc(sizeof(KeyMapping) * VKC_MAX);
+    KeyMapping* keyMapInfo = malloc(sizeof(KeyMapping) * VKC_COUNT);
+    if (!keyMapInfo)
+    {
+        printf("Error: malloc failed for keyMapInfo\n");
+        return NULL;
+    }
+    
 
-    for (uint32_t i = 0; i < VKC_MAX; i++)
+    for (size_t i = 0; i < VKC_COUNT; i++)
     {
         keyMapInfo[i].onPress = (KeyAction){
             .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROW,
@@ -79,31 +135,37 @@ KeyMapping* initKeyMapInfo()
 
 KeyStatus* initKeyMapStatus()
 {
-    KeyStatus* keyMapStatus = malloc(sizeof(KeyStatus) * VKC_MAX);
-
-    for (uint32_t i = 0; i < VKC_MAX; i++)
+    KeyStatus* keyMapStatus = malloc(sizeof(KeyStatus) * VKC_COUNT);
+    if (!keyMapStatus)
+    {
+        printf("Error: malloc failed for keyMapStatus\n");
+        return NULL;
+    }
+    
+    for (size_t i = 0; i < VKC_COUNT; i++)
     {
         keyMapStatus[i] = (KeyStatus) {
             .isActive = false,
-            .activeCode = NO_CODE
+            .activeCode = NO_CODE,
+            .count = 0
         };
     }
 
     return keyMapStatus;
 } 
 
-int populateMappingTable(KeyMapping* keyMapInfo) 
+ReturnMsg populateMappingTable(KeyMapping* keyMapInfo) 
 {
     cJSON* remaps = cJSON_GetObjectItemCaseSensitive(json, "remaps");
     if (!remaps) {
         printf("Error: remaps could not be retrieved\n");
-        return 1;
+        return RETURN_MSG_JSON_ERROR;
     }
 
     cJSON* layers = cJSON_GetObjectItemCaseSensitive(remaps, "layers");
     if (!layers) {
         printf("Error: layers could not be retrieved\n");
-        return 1;
+        return RETURN_MSG_JSON_ERROR;
     }
     cJSON* layer;
     cJSON* keys;
@@ -115,111 +177,116 @@ int populateMappingTable(KeyMapping* keyMapInfo)
     cJSON* type;
     cJSON* vkCode;
 
-    int layerCount = -1;
-    cJSON_ArrayForEach(layer, layers) {
-        printf("Layer %d: \n", ++layerCount);
+    int layerCount = 0;
+    cJSON_ArrayForEach(layer, layers) 
+    {
+        printf("Layer %d: \n", layerCount);
         if (!layer) {
             printf("Error: layer could not be retrieved\n");
-            return 1;
+            return RETURN_MSG_JSON_ERROR;
         }
 
         keys = cJSON_GetObjectItemCaseSensitive(layer, "keys");
         if (!keys) {
             printf("Error: keys could not be retrieved\n");
-            return 1;
+            return RETURN_MSG_JSON_ERROR;
         }
 
-        int keyCount = -1;
-        cJSON_ArrayForEach(key, keys) {
-            printf("Layer %d: Key %d:\n", layerCount, ++keyCount);
+        int keyCount = 0;
+        cJSON_ArrayForEach(key, keys) 
+        {
+            printf("Layer %d: Key %d:\n", layerCount, keyCount);
             if (!key) {
                 printf("Error: key could not be retrieved\n");
-                return 1;
+                return RETURN_MSG_JSON_ERROR;
             }
 
             from = cJSON_GetObjectItemCaseSensitive(key, "vkCode");
             if (!from) {
                 printf("Error: base key vkCode could not be retrieved\n");
-                return 1;
+                return RETURN_MSG_JSON_ERROR;
             }
             if (!from) {
                 printf("Error: base key vkCode could not be retrieved\n");
-                return 1;
+                return RETURN_MSG_JSON_ERROR;
             }
             if (!cJSON_IsNumber(from)) {
                 printf("Error: base key vkCode not a number\n");
-                return 1;
+                return RETURN_MSG_JSON_ERROR;
             }
 
             actions = cJSON_GetObjectItemCaseSensitive(key, "actions");
             if (!actions) {
                 printf("Error: actions could not be retrieved\n");
-                return 1;
+                return RETURN_MSG_JSON_ERROR;
             }
-            int actionCount = -1;
+            int actionCount = 0;
             cJSON_ArrayForEach(action, actions)
             {
-                printf("Layer %d: Key %d: Action %d: \n", layerCount, keyCount, ++actionCount);
-                printf("", actionCount++);
+                printf("Layer %d: Key %d: Action %d: \n", layerCount, keyCount, actionCount);
                 press = cJSON_GetObjectItemCaseSensitive(action, "press");
                 if (!press) {
                     printf("Error: press could not be retrieved\n");
-                    return 1;
+                    return RETURN_MSG_JSON_ERROR;
                 }
-
                 type = cJSON_GetObjectItemCaseSensitive(press, "type");
-                if (!press) {
+                if (!type) {
                     printf("Error: type could not be retrieved\n");
-                    return 1;
+                    return RETURN_MSG_JSON_ERROR;
+                }
+                char* typeStr = cJSON_GetStringValue(type);
+                if (!typeStr)
+                {
+                    printf("Error: type is not a string\n");
+                    return RETURN_MSG_JSON_ERROR;
                 }
 
                 // atm hårdkådat för vkc
                 int isVKC;
                 for (int i = 0; i < KEYTYPE_COUNT; i++)
                 {
-                    isVKC = strcmp(cJSON_GetStringValue(type), "VKC") == 0;
-                    if (isVKC) {  
-                        i++;
+                    isVKC = strcmp(typeStr, "VKC") == 0;
+                    if (isVKC)
                         break;
-                    }
                 }
                 if (!isVKC) {
                     printf("Error: type missmatch on type vkCode\n");
-                    return 1;
+                    return RETURN_MSG_JSON_ERROR;
                 }
 
                 vkCode = cJSON_GetObjectItemCaseSensitive(press, "vkCode");
                 if (!vkCode) {
                     printf("Error: action vkCode could not be retrieved\n");
-                    return 1;
+                    return RETURN_MSG_JSON_ERROR;
                 }
                 if (!cJSON_IsNumber(vkCode)) {
                     printf("Error: action vkCode not a number\n");
-                    return 1;
+                    return RETURN_MSG_JSON_ERROR;
                 }
 
-                keyMapInfo[(int) cJSON_GetNumberValue(from)] = (KeyMapping){
+                unsigned int fromVKCode = (unsigned int)cJSON_GetNumberValue(from);
+                if (!(fromVKCode < VKC_COUNT)) {
+                    printf("Error: base vkCode too big, can be of max value %d\n", VKC_COUNT);
+                    return RETURN_MSG_JSON_ERROR;
+                }
+
+                unsigned short toVKCodeOnPress = (unsigned short)cJSON_GetNumberValue(vkCode);
+                if (!(toVKCodeOnPress < VKC_COUNT)) {
+                    printf("Error: vkCode on press too big, can be of max value %d\n", VKC_COUNT);
+                    return RETURN_MSG_JSON_ERROR;
+                }
+                
+                keyMapInfo[fromVKCode] = (KeyMapping){
                     .onPress.type = KEYTYPE_VIRTUAL_KEYCODE,
-                    .onPress.code = cJSON_GetNumberValue(vkCode)
+                    .onPress.code = toVKCodeOnPress
                 };
+                actionCount++;
             }
+            keyCount++;
         }
+        layerCount++;
     }
 
-    return 0;
+    cJSON_Delete(json);
+    return RETURN_MSG_OK;
 }
-
-void testWindows(KeyMapping* keyMapInfo)
-{
-    keyMapInfo[66].onPress.type = KEYTYPE_UNICODE;
-    keyMapInfo[66].onPress.code = 0x1F60A; // b -> 😊, 2 code point unicode 
-
-    keyMapInfo[65].onPress.type = KEYTYPE_VIRTUAL_KEYCODE;
-    keyMapInfo[65].onPress.code = 160; // a -> left shift
-
-    keyMapInfo[68].onPress.type = KEYTYPE_VIRTUAL_KEYCODE;
-    keyMapInfo[68].onPress.code = 162; // d -> left ctrl
-
-    keyMapInfo[70].onPress.type = KEYTYPE_VIRTUAL_KEYCODE;
-    keyMapInfo[70].onPress.code = 164; // a -> left alt
-}   

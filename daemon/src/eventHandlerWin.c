@@ -6,24 +6,29 @@
 
 LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 
-#define EXTENDED_FLAG   0x01 // LLKHF_EXTENDED
-
 HHOOK Hook;
 
-bool ModifierState[VKC_COUNT] = { false };
+KeyStatus* KeyMapStatus;
 const KeyEvent ModifierEvents[MODIFIERKEY_COUNT] = {
-    [MODIFIERKEY_LEFT_SHIFT ] = { .vkCode = LSHIFT, .type = KEYTYPE_MODIFIER, .flags = 0             },
-    [MODIFIERKEY_RIGHT_SHIFT] = { .vkCode = RSHIFT, .type = KEYTYPE_MODIFIER, .flags = 0             },
-    [MODIFIERKEY_LEFT_CTRL  ] = { .vkCode = LCTRL , .type = KEYTYPE_MODIFIER, .flags = 0             },
-    [MODIFIERKEY_RIGHT_CTRL ] = { .vkCode = RCTRL , .type = KEYTYPE_MODIFIER, .flags = 0             },
-    [MODIFIERKEY_LEFT_ALT   ] = { .vkCode = LALT  , .type = KEYTYPE_MODIFIER, .flags = 0             },
-    [MODIFIERKEY_RIGHT_ALT  ] = { .vkCode = RALT  , .type = KEYTYPE_MODIFIER, .flags = EXTENDED_FLAG },
+    [MODIFIERKEY_LEFT_SHIFT ] = { .vkCode = LSHIFT, .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_RIGHT_SHIFT] = { .vkCode = RSHIFT, .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_LEFT_CTRL  ] = { .vkCode = LCTRL , .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_RIGHT_CTRL ] = { .vkCode = RCTRL , .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_LEFT_ALT   ] = { .vkCode = LALT  , .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_RIGHT_ALT  ] = { .vkCode = RALT  , .type = KEYTYPE_MODIFIER },
 };
 
-ReturnMsg runEventLoop() 
+ReturnMsg runEventLoop(KeyStatus* keyMapStatus) 
 {
+    KeyMapStatus = keyMapStatus;
     registerHotKeys();
     Hook = SetWindowsHookEx(WH_KEYBOARD_LL, lowLevelKeyboardProc, NULL, 0);
+    if (!Hook)
+    {
+        printf("Error: Windows hook could not be installed\n");
+        return RETURN_MSG_BAD_HOOK;
+    }
+    
     MSG msg;
     BOOL bRet;
 
@@ -116,81 +121,63 @@ KeyEvent* createEvent(void* osEvent)
 {
     KBDLLHOOKSTRUCT* event = (KBDLLHOOKSTRUCT*)osEvent;
     KeyEvent* keyEvent = malloc(sizeof(KeyEvent));
+    if (!keyEvent)
+    {
+        printf("Error: malloc failed for keyEvent\n");
+        return NULL;
+    }
+    
     *keyEvent = (KeyEvent) {
         .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROW,
-        .originalVKCode = event->vkCode,
+        .originalVKCode = (unsigned short)event->vkCode,
         .uniCode = U'\0',
-        .vkCode = event->vkCode,
+        .vkCode = (unsigned short)event->vkCode,
         .keyDown = !(event->flags & LLKHF_UP),
-        .flags = event->flags,
-        .timeStamp = event->time
+        .flags = (unsigned long)event->flags,
+        .timeStamp = (unsigned long)event->time
     };
     return keyEvent;
 }
 
 ReturnMsg sendVKCodeEvent(KeyEvent* event)
 {   
-    uint32_t vkCode = event->vkCode;
-    
+    WORD vkCode = event->vkCode;
+    DWORD flags = 0;
+
+    if (event->flags & LLKHF_EXTENDED)
+        flags |= KEYEVENTF_EXTENDEDKEY;
+
+    UINT pos = 0;
+    INPUT input[1];
+
     if (!event->keyDown)
     {
-        if (event->type == KEYTYPE_MODIFIER)
-            ModifierState[vkCode] = false;
-            
-        uint32_t flags = KEYEVENTF_KEYUP;
-
-        for (int i = 0; i < MODIFIERKEY_COUNT; i++)
+        flags |= KEYEVENTF_KEYUP;
+        KeyMapStatus[event->originalVKCode].count--;
+        if (KeyMapStatus[event->originalVKCode].count < 1)
         {
-            if (ModifierEvents[i].vkCode == vkCode)
-                flags |= ModifierEvents[i].flags;
-        }
-
-        INPUT input = {
-            .type = INPUT_KEYBOARD,
-            .ki.wVk = vkCode,
-            .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
-            .ki.dwFlags = flags,
-            .ki.dwExtraInfo = INFO_EVENT_INJECTED
-        };
-        SendInput(1, &input, sizeof(INPUT));
-        return RETURN_MSG_SYNT_EVENT;
-    }
-    
-    if (event->type == KEYTYPE_MODIFIER)
-        ModifierState[vkCode] = true;
-
-    INPUT input[MODIFIERKEY_COUNT*2 + 1] = {0};
-    KeyEvent modEvent;
-
-    int pos = 0;
-    for (int i = 0; i < MODIFIERKEY_COUNT; i++)
-    {
-        modEvent = ModifierEvents[i];
-        if (ModifierState[modEvent.vkCode])
-        {
-            input[pos++] = (INPUT){
-                .type = INPUT_KEYBOARD,
-                .ki.wVk = modEvent.vkCode,
-                .ki.wScan = MapVirtualKey(modEvent.vkCode, MAPVK_VK_TO_VSC),
-                .ki.dwFlags = modEvent.flags,
-                .ki.dwExtraInfo = INFO_EVENT_INJECTED,
-            };
+            KeyMapStatus[event->originalVKCode].isActive = false;
+            KeyMapStatus[event->originalVKCode].count = 0;
         }
     }
-
-    if (event->type != KEYTYPE_MODIFIER)
+    else
     {
-        input[pos++] = (INPUT){
-            .type = INPUT_KEYBOARD,
-            .ki.wVk = vkCode,
-            .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
-            .ki.dwExtraInfo = INFO_EVENT_INJECTED
-        };
+        KeyMapStatus[event->originalVKCode].isActive = true;
+        KeyMapStatus[event->originalVKCode].count++;
     }
+
+    input[pos++] = (INPUT){
+        .type = INPUT_KEYBOARD,
+        .ki.wVk = vkCode,
+        .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
+        .ki.dwFlags = flags,
+        .ki.time = event->timeStamp,
+        .ki.dwExtraInfo = INFO_EVENT_INJECTED
+    };
 
     if (SendInput(pos, input, sizeof(INPUT)) != pos)
     {
-        fprintf(stderr, "Error: %lu\n", GetLastError());
+        fprintf(stderr, "Error: synt event failed (err %lu)\n", GetLastError());
         return RETURN_MSG_SYNT_EVENT_FAILED;
     }
     return RETURN_MSG_SYNT_EVENT;
@@ -202,12 +189,12 @@ ReturnMsg sendUnicodeEvent(KeyEvent* event)
         return RETURN_MSG_KEY_UP;
         
     INPUT inputs[2] = {0};
-    int pos = 0;
+    UINT pos = 0;
 
     DWORD flags = KEYEVENTF_UNICODE |
                  (!event->keyDown ? KEYEVENTF_KEYUP : 0);
 
-    uint32_t character = event->uniCode;
+    DWORD character = event->uniCode;
 
     if (character >= 0xD800 && character <= 0xDFFF)
         return RETURN_MSG_INVALID_UNICODE;
@@ -254,42 +241,45 @@ void registerHotKeys()
     // add hotkeys
 }
 
-void resetModifiers(KeyStatus* keyMapStatus)
+void resetModifiers(KeyMapping* keyMapInfo)
 {
-    INPUT input[VKC_COUNT] = {0};
-    int pos = 0;
+    INPUT input[VKC_COUNT*2] = {0};
+    UINT pos = 0;
 
-    for (int i = 0; i < MODIFIERKEY_COUNT; i++)
+    for (WORD vkCode = 0; vkCode < VKC_COUNT; vkCode++)
     {
-        if (ModifierState[ModifierEvents[i].vkCode])
+        if (KeyMapStatus[vkCode].isActive && !isModifier(vkCode))
         {
-            KeyEvent mod = ModifierEvents[i];
-            input[pos++] = (INPUT){
-                .type = INPUT_KEYBOARD,
-                .ki.wVk = mod.vkCode,
-                .ki.wScan = MapVirtualKey(mod.vkCode, MAPVK_VK_TO_VSC),
-                .ki.dwFlags = mod.flags | KEYEVENTF_KEYUP,
-                .ki.dwExtraInfo = INFO_EVENT_INJECTED
-            };
-            ModifierState[mod.vkCode] = false;
+            for (size_t i = 0; i < KeyMapStatus[vkCode].count; i++)
+            {
+                input[pos++] = (INPUT){
+                    .type = INPUT_KEYBOARD,
+                    .ki.wVk = vkCode,
+                    .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
+                    .ki.dwFlags = KEYEVENTF_KEYUP,
+                    .ki.dwExtraInfo = INFO_EVENT_INJECTED
+                };
+            }
         }
     }
-    
-
-    for (int i = 0; i < VKC_COUNT; i++)
+    for (size_t i = 0; i < MODIFIERKEY_COUNT; i++)
     {
-        if (keyMapStatus[i].isActive)
+        WORD vkCode = ModifierEvents[i].vkCode;
+        KeyStatus modStatus = KeyMapStatus[vkCode];
+        if (modStatus.isActive)
         {
-            input[pos++] = (INPUT){
-                .type = INPUT_KEYBOARD,
-                .ki.wVk = i,
-                .ki.wScan = MapVirtualKey(i, MAPVK_VK_TO_VSC),
-                .ki.dwFlags = KEYEVENTF_KEYUP,
-                .ki.dwExtraInfo = INFO_EVENT_INJECTED
-            };
+            for (size_t j = 0; j < KeyMapStatus[vkCode].count; j++)
+            {
+                input[pos++] = (INPUT){
+                    .type = INPUT_KEYBOARD,
+                    .ki.wVk = vkCode,
+                    .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
+                    .ki.dwFlags = KEYEVENTF_KEYUP,
+                    .ki.dwExtraInfo = INFO_EVENT_INJECTED
+                };
+            }
         }
     }
-
     if (pos > 0)
         SendInput(pos, input, sizeof(INPUT));
 }
