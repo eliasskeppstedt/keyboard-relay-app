@@ -9,8 +9,24 @@ customization accessible to everyone.
 Website is managed in this repository: https://github.com/eliasskeppstedt/keyboard-relay-website
 
 ## Current state
-No current "finished" versions of the full program yet. Work on the keystroke interception part of 
-the program has been started for Windows. 
+Work on daemon is started and should now support press modifications with virtual key codes. 
+Cant get alt + shift + tab to work, when both alt and shift are synthetic. When holding synthetic
+alt and shift, tab is not even registred by the hook procedure, it is like windows is eating up
+the tab event. So for now, this combo will not work unless at least native alt or native shift
+is involved.
+
+JSON integration is in place, such that the website mapping tool now can be used to generate
+a functional mapping for the program. 
+
+## Run program
+
+Download and unzip the `keyboard-relay` folder. The program will be in that folder, which is also
+where you should put your mapping json files. Right click on an empty space in the folder and in 
+the menu select `Open in Terminal`. From there you should write  
+```
+./keyboard-relay.exe <file-name>.json
+```
+where you replace `<file-name>.json` to the name of the mapping file you want to run.
 
 ## Future (goals)
 The goal is to make this OS agnostic such that it can be used on whatever machine you are on and
