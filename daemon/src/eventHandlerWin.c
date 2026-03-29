@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <stdio.h>
+#include <string.h>
 #include "../header/eventHandler.h"
 #include "../header/types.h"
 #include "../header/constants.h"
@@ -9,18 +10,21 @@ LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 HHOOK Hook;
 
 KeyStatus* KeyMapStatus;
+KeyMapping* KeyMapInfo;
+
 const KeyEvent ModifierEvents[MODIFIERKEY_COUNT] = {
-    [MODIFIERKEY_LEFT_SHIFT ] = { .vkCode = LSHIFT, .type = KEYTYPE_MODIFIER },
-    [MODIFIERKEY_RIGHT_SHIFT] = { .vkCode = RSHIFT, .type = KEYTYPE_MODIFIER },
-    [MODIFIERKEY_LEFT_CTRL  ] = { .vkCode = LCTRL , .type = KEYTYPE_MODIFIER },
-    [MODIFIERKEY_RIGHT_CTRL ] = { .vkCode = RCTRL , .type = KEYTYPE_MODIFIER },
-    [MODIFIERKEY_LEFT_ALT   ] = { .vkCode = LALT  , .type = KEYTYPE_MODIFIER },
-    [MODIFIERKEY_RIGHT_ALT  ] = { .vkCode = RALT  , .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_LEFT_SHIFT ] = { .code[0] = LSHIFT, .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_RIGHT_SHIFT] = { .code[0] = RSHIFT, .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_LEFT_CTRL  ] = { .code[0] = LCTRL , .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_RIGHT_CTRL ] = { .code[0] = RCTRL , .type = KEYTYPE_MODIFIER, .flags = KEYEVENTF_EXTENDEDKEY },
+    [MODIFIERKEY_LEFT_ALT   ] = { .code[0] = LALT  , .type = KEYTYPE_MODIFIER },
+    [MODIFIERKEY_RIGHT_ALT  ] = { .code[0] = RALT  , .type = KEYTYPE_MODIFIER, .flags = KEYEVENTF_EXTENDEDKEY },
 };
 
-ReturnMsg runEventLoop(KeyStatus* keyMapStatus) 
+ReturnMsg runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo) 
 {
     KeyMapStatus = keyMapStatus;
+    KeyMapInfo = keyMapInfo;
     registerHotKeys();
     Hook = SetWindowsHookEx(WH_KEYBOARD_LL, lowLevelKeyboardProc, NULL, 0);
     if (!Hook)
@@ -128,10 +132,9 @@ KeyEvent* createEvent(void* osEvent)
     }
     
     *keyEvent = (KeyEvent) {
-        .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROW,
+        .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH,
         .originalVKCode = (unsigned short)event->vkCode,
-        .uniCode = U'\0',
-        .vkCode = (unsigned short)event->vkCode,
+        .code = (unsigned short)event->vkCode,
         .keyDown = !(event->flags & LLKHF_UP),
         .flags = (unsigned long)event->flags,
         .timeStamp = (unsigned long)event->time
@@ -139,43 +142,31 @@ KeyEvent* createEvent(void* osEvent)
     return keyEvent;
 }
 
-ReturnMsg sendVKCodeEvent(KeyEvent* event)
+ReturnMsg sendVKCodeEvent(KeyEvent* event) // check err codesizes
 {   
-    WORD vkCode = event->vkCode;
+    WORD* vkCodes = (WORD*)event->code;
     DWORD flags = 0;
 
     if (event->flags & LLKHF_EXTENDED)
         flags |= KEYEVENTF_EXTENDEDKEY;
+    if (!event->keyDown)
+        flags |= KEYEVENTF_KEYUP;
 
     UINT pos = 0;
     INPUT input[1];
 
-    if (!event->keyDown)
-    {
-        flags |= KEYEVENTF_KEYUP;
-        KeyMapStatus[event->originalVKCode].count--;
-        if (KeyMapStatus[event->originalVKCode].count < 1)
-        {
-            KeyMapStatus[event->originalVKCode].isActive = false;
-            KeyMapStatus[event->originalVKCode].count = 0;
-        }
-    }
-    else
-    {
-        KeyMapStatus[event->originalVKCode].isActive = true;
-        KeyMapStatus[event->originalVKCode].count++;
-    }
-
     input[pos++] = (INPUT){
         .type = INPUT_KEYBOARD,
-        .ki.wVk = vkCode,
-        .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
+        .ki.wVk = vkCodes[0],
+        .ki.wScan = MapVirtualKey(vkCodes[0], MAPVK_VK_TO_VSC),
         .ki.dwFlags = flags,
         .ki.time = event->timeStamp,
         .ki.dwExtraInfo = INFO_EVENT_INJECTED
     };
 
-    if (SendInput(pos, input, sizeof(INPUT)) != pos)
+    UINT inputsSent = SendInput(pos, input, sizeof(INPUT));
+
+    if (inputsSent != pos)
     {
         fprintf(stderr, "Error: synt event failed (err %lu)\n", GetLastError());
         return RETURN_MSG_SYNT_EVENT_FAILED;
@@ -184,51 +175,64 @@ ReturnMsg sendVKCodeEvent(KeyEvent* event)
 } 
 
 ReturnMsg sendUnicodeEvent(KeyEvent* event)
-{   
-    if (!event->keyDown)
-        return RETURN_MSG_KEY_UP;
-        
-    INPUT inputs[2] = {0};
+{
+    DWORD* codePoints = event->code;
+    DWORD flags = KEYEVENTF_UNICODE | (!event->keyDown ? KEYEVENTF_KEYUP : 0);
+
+    int size = KeyMapInfo[event->originalVKCode].onPress.size;
+    INPUT* inputs = malloc(sizeof(INPUT) * size * 2);
     UINT pos = 0;
 
-    DWORD flags = KEYEVENTF_UNICODE |
-                 (!event->keyDown ? KEYEVENTF_KEYUP : 0);
-
-    DWORD character = event->uniCode;
-
-    if (character >= 0xD800 && character <= 0xDFFF)
-        return RETURN_MSG_INVALID_UNICODE;
-
-    inputs[pos] = (INPUT){
-        .type = INPUT_KEYBOARD,
-        .ki.wVk = 0,
-        .ki.dwFlags = flags,
-        .ki.dwExtraInfo = INFO_EVENT_INJECTED
-    };
-
-    if (character <= 0xFFFF)
+    for (size_t i = 0; i < size; i++)
     {
-        inputs[pos++].ki.wScan = (WORD)character;
-    }
-    else
-    {
-        character -= 0x10000;
-
-        WORD high = 0xD800 + (character >> 10);
-        WORD low  = 0xDC00 + (character & 0x3FF);
-
-        inputs[pos++].ki.wScan = high;
-
-        inputs[pos++] = (INPUT){
+        inputs[pos] = (INPUT){
             .type = INPUT_KEYBOARD,
             .ki.wVk = 0,
-            .ki.wScan = low,
             .ki.dwFlags = flags,
             .ki.dwExtraInfo = INFO_EVENT_INJECTED
         };
-    }
 
-    if (SendInput(pos, inputs, sizeof(INPUT)) != pos)
+        if (codePoints[i] > 0x10FFFF) // undefined unicode
+        {
+            printf("Error: codepoint too big");
+            free(inputs);
+            return RETURN_MSG_INVALID_UNICODE;
+        }
+        if (codePoints[i] >= 0xD800 && codePoints[i] <= 0xDFFF) // surrogate code value
+        {
+            printf("Error: codepoint cant be a surrogate code value");
+            free(inputs);
+            return RETURN_MSG_INVALID_UNICODE;
+        }
+        
+        if (codePoints[i] <= 0xFFFF) // BMP
+        {
+            inputs[pos++].ki.wScan = (WORD)codePoints[i];
+        }
+        else // surrogate pair
+        {
+            DWORD value = codePoints[i] - 0x10000;
+            WORD high = 0xD800 + (value >> 10);
+            WORD low = 0xDC00 + (value & 0x3FF);
+
+            inputs[pos++].ki.wScan = high;
+
+            inputs[pos++] = (INPUT){
+                .type = INPUT_KEYBOARD,
+                .ki.wVk = 0,
+                .ki.wScan = low,
+                .ki.dwFlags = flags,
+                .ki.dwExtraInfo = INFO_EVENT_INJECTED
+            };
+        }
+        
+    }
+    printf("error size is %d but pos is %d!\n", size, pos);
+    
+    UINT inputsSent = SendInput(pos, inputs, sizeof(INPUT));
+    free(inputs);
+
+    if (inputsSent != pos)
     {
         printLastError();
         return RETURN_MSG_SYNT_EVENT_FAILED;
@@ -248,25 +252,24 @@ void resetModifiers(KeyMapping* keyMapInfo)
 
     for (WORD vkCode = 0; vkCode < VKC_COUNT; vkCode++)
     {
-        if (KeyMapStatus[vkCode].isActive && !isModifier(vkCode))
-        {
-            for (size_t i = 0; i < KeyMapStatus[vkCode].count; i++)
-            {
-                input[pos++] = (INPUT){
-                    .type = INPUT_KEYBOARD,
-                    .ki.wVk = vkCode,
-                    .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
-                    .ki.dwFlags = KEYEVENTF_KEYUP,
-                    .ki.dwExtraInfo = INFO_EVENT_INJECTED
-                };
-            }
+        SHORT keyState;
+        while (((keyState = GetKeyState(vkCode)) >> 15)  && !isModifier(vkCode))
+        {  
+            input[pos++] = (INPUT){
+                .type = INPUT_KEYBOARD,
+                .ki.wVk = vkCode,
+                .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
+                .ki.dwFlags = KEYEVENTF_KEYUP,
+                .ki.dwExtraInfo = INFO_EVENT_INJECTED
+            };
         }
     }
-    for (size_t i = 0; i < MODIFIERKEY_COUNT; i++)
+    for (size_t i = 0; i < MODIFIERKEY_COUNT; i++) // check err codesize
     {
-        WORD vkCode = ModifierEvents[i].vkCode;
-        KeyStatus modStatus = KeyMapStatus[vkCode];
-        if (modStatus.isActive)
+        WORD vkCode = (WORD)ModifierEvents[i].code[0];
+        DWORD flags = KEYEVENTF_KEYUP | ModifierEvents[i].flags;
+
+        if (KeyMapStatus[vkCode].isActive)
         {
             for (size_t j = 0; j < KeyMapStatus[vkCode].count; j++)
             {
@@ -274,12 +277,13 @@ void resetModifiers(KeyMapping* keyMapInfo)
                     .type = INPUT_KEYBOARD,
                     .ki.wVk = vkCode,
                     .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
-                    .ki.dwFlags = KEYEVENTF_KEYUP,
+                    .ki.dwFlags = flags,
                     .ki.dwExtraInfo = INFO_EVENT_INJECTED
                 };
             }
         }
     }
+    
     if (pos > 0)
         SendInput(pos, input, sizeof(INPUT));
 }

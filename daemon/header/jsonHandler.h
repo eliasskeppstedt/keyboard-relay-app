@@ -10,6 +10,7 @@ KeyMapping* initKeyMapInfo();
 KeyStatus* initKeyMapStatus();
 EventQueue* initEventQueue();
 ReturnMsg populateMappingTable(KeyMapping* keyMapInfo) ;
-void testWindows(KeyMapping* keyMapInfo);
+ReturnMsg loadSettings(Settings* settings);
+void deleteJson();
 
 #endif // JSONHANDLER_H

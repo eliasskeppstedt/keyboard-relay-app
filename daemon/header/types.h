@@ -7,7 +7,8 @@
 
 typedef struct KeyAction{
     KeyType type;
-    unsigned long code;
+    unsigned long code[UNICODE_MAX_CODE_POINTS];
+    int size;
 } KeyAction;
 
 typedef struct KeyMapping{
@@ -17,7 +18,7 @@ typedef struct KeyMapping{
 
 typedef struct KeyStatus{
     bool isActive;
-    unsigned short activeCode;
+    unsigned long activeCode[UNICODE_MAX_CODE_POINTS];
     int count;
 } KeyStatus;
 
@@ -25,8 +26,7 @@ typedef struct KeyEvent{
     KeyType type;
     // virtual code or unicode
     unsigned short originalVKCode;
-    unsigned short vkCode;
-    unsigned long uniCode;
+    unsigned long code[UNICODE_MAX_CODE_POINTS];
     unsigned long timeStamp;
     unsigned long flags;
     bool keyDown;
@@ -51,5 +51,9 @@ typedef struct EventQueue{
     size_t head;
     size_t tail;
 } EventQueue;
+
+typedef struct Settings{
+    int tmp;
+} Settings;
 
 #endif // TYPES_H

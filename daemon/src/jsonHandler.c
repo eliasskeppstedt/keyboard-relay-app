@@ -120,13 +120,15 @@ KeyMapping* initKeyMapInfo()
     for (size_t i = 0; i < VKC_COUNT; i++)
     {
         keyMapInfo[i].onPress = (KeyAction){
-            .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROW,
-            .code = NO_CODE
+            .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH,
+            .code = i,
+            .size = 1
         };
 
         keyMapInfo[i].onHold = (KeyAction){
-            .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROW,
-            .code = NO_CODE
+            .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH,
+            .code = i,
+            .size = 1
         };
     }
 
@@ -175,7 +177,8 @@ ReturnMsg populateMappingTable(KeyMapping* keyMapInfo)
     cJSON* action;
     cJSON* press;
     cJSON* type;
-    cJSON* vkCode;
+    cJSON* codes;
+    cJSON* code;
 
     int layerCount = 0;
     cJSON_ArrayForEach(layer, layers) 
@@ -206,12 +209,13 @@ ReturnMsg populateMappingTable(KeyMapping* keyMapInfo)
                 printf("Error: base key vkCode could not be retrieved\n");
                 return RETURN_MSG_JSON_ERROR;
             }
-            if (!from) {
-                printf("Error: base key vkCode could not be retrieved\n");
-                return RETURN_MSG_JSON_ERROR;
-            }
             if (!cJSON_IsNumber(from)) {
                 printf("Error: base key vkCode not a number\n");
+                return RETURN_MSG_JSON_ERROR;
+            }
+            unsigned int fromVKCode = (unsigned int)cJSON_GetNumberValue(from);
+            if (!(fromVKCode < VKC_COUNT)) {
+                printf("Error: base vkCode too big, can be of max value %d\n", VKC_COUNT);
                 return RETURN_MSG_JSON_ERROR;
             }
 
@@ -240,46 +244,62 @@ ReturnMsg populateMappingTable(KeyMapping* keyMapInfo)
                     printf("Error: type is not a string\n");
                     return RETURN_MSG_JSON_ERROR;
                 }
-
-                // atm hårdkådat för vkc
-                int isVKC;
+                int typeId = -1;
                 for (int i = 0; i < KEYTYPE_COUNT; i++)
                 {
-                    isVKC = strcmp(typeStr, "VKC") == 0;
-                    if (isVKC)
-                        break;
+                    if (strcmp(typeStr, "vkCode") == 0) {
+                        typeId = KEYTYPE_VIRTUAL_KEYCODE;
+                    }
+                    if (strcmp(typeStr, "unicode") == 0) {
+                        typeId = KEYTYPE_UNICODE;
+                    }
                 }
-                if (!isVKC) {
-                    printf("Error: type missmatch on type vkCode\n");
+                if (typeId == -1) {
+                    printf("Error: type missmatch on code type\n");
                     return RETURN_MSG_JSON_ERROR;
                 }
 
-                vkCode = cJSON_GetObjectItemCaseSensitive(press, "vkCode");
-                if (!vkCode) {
-                    printf("Error: action vkCode could not be retrieved\n");
+                codes = cJSON_GetObjectItemCaseSensitive(press, "codes");
+                if (!codes) {
+                    printf("Error: action code could not be retrieved\n");
                     return RETURN_MSG_JSON_ERROR;
                 }
-                if (!cJSON_IsNumber(vkCode)) {
-                    printf("Error: action vkCode not a number\n");
-                    return RETURN_MSG_JSON_ERROR;
-                }
-
-                unsigned int fromVKCode = (unsigned int)cJSON_GetNumberValue(from);
-                if (!(fromVKCode < VKC_COUNT)) {
-                    printf("Error: base vkCode too big, can be of max value %d\n", VKC_COUNT);
-                    return RETURN_MSG_JSON_ERROR;
-                }
-
-                unsigned short toVKCodeOnPress = (unsigned short)cJSON_GetNumberValue(vkCode);
-                if (!(toVKCodeOnPress < VKC_COUNT)) {
-                    printf("Error: vkCode on press too big, can be of max value %d\n", VKC_COUNT);
+                int size = cJSON_GetArraySize(codes);
+                if (size > UNICODE_MAX_CODE_POINTS)
+                {
+                    printf("Error: to many codes\n");
                     return RETURN_MSG_JSON_ERROR;
                 }
                 
-                keyMapInfo[fromVKCode] = (KeyMapping){
-                    .onPress.type = KEYTYPE_VIRTUAL_KEYCODE,
-                    .onPress.code = toVKCodeOnPress
-                };
+                keyMapInfo[fromVKCode].onPress.size = cJSON_GetArraySize(codes);
+                keyMapInfo[fromVKCode].onPress.type = typeId;
+                int codeIdx = 0;
+
+                cJSON_ArrayForEach(code, codes)
+                {                    
+                    printf("Layer %d: Key %d: Action %d: Code %d:\n", layerCount, keyCount, actionCount, codeIdx);
+
+                    unsigned long toCodeOnPress = (unsigned long)cJSON_GetNumberValue(code);
+
+                    if (typeId == KEYTYPE_UNICODE) {
+                        if (!(toCodeOnPress < UNICODE_COUNT)) {
+                            printf("Error: unicode on press too big, can be of max value %d\n", UNICODE_COUNT);
+                            return RETURN_MSG_JSON_ERROR;
+                        }
+                    }
+                    else if (!(toCodeOnPress < VKC_COUNT)) {
+                        printf("Error: vkCode on press too big, can be of max value %d\n", VKC_COUNT);
+                        return RETURN_MSG_JSON_ERROR;
+                    }
+                    else if (codeIdx == 1)
+                    {
+                        printf("Error: multiple virtual key codes are unsupported atm\n");
+                        return RETURN_MSG_JSON_ERROR;
+                    }
+                    
+
+                    keyMapInfo[fromVKCode].onPress.code[codeIdx++] = toCodeOnPress;
+                }
                 actionCount++;
             }
             keyCount++;
@@ -287,6 +307,15 @@ ReturnMsg populateMappingTable(KeyMapping* keyMapInfo)
         layerCount++;
     }
 
-    cJSON_Delete(json);
     return RETURN_MSG_OK;
+}
+
+ReturnMsg loadSettings(Settings* settings)
+{
+    return RETURN_MSG_OK;
+}
+
+void deleteJson() 
+{
+    cJSON_Delete(json);
 }

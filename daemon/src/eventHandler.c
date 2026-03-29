@@ -20,7 +20,7 @@ ReturnMsg handleEvent(KeyEvent* incomingEvent)
         return RETURN_MSG_EVENT_NOT_FOUND;
     }
     
-    if (incomingEvent->vkCode == EscWin) 
+    if (incomingEvent->originalVKCode == EscWin) 
     {   
         resetModifiers(KeyMapInfo);
         free(incomingEvent);
@@ -28,56 +28,76 @@ ReturnMsg handleEvent(KeyEvent* incomingEvent)
     }
 
     KeyEvent* outgoingEvent;
-    unsigned short originalVKCode = incomingEvent->vkCode;
-
-    incomingEvent->type = KeyMapInfo[incomingEvent->vkCode].onPress.type;
-    if (incomingEvent->type == KEYTYPE_UNICODE)
-    { 
-        incomingEvent->uniCode = KeyMapInfo[incomingEvent->vkCode].onPress.code;
-    }
-    else 
+    unsigned short originalVKCode = incomingEvent->originalVKCode;
+    
+    incomingEvent->type = KeyMapInfo[originalVKCode].onPress.type; 
+    if (incomingEvent->type != KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH)
     {
-        if (incomingEvent->type == KEYTYPE_VIRTUAL_KEYCODE)
+        for (size_t i = 0; i < KeyMapInfo[originalVKCode].onPress.size; i++)
         {
-            incomingEvent->vkCode = (unsigned short)KeyMapInfo[incomingEvent->vkCode].onPress.code;
+            incomingEvent->code[i] = KeyMapInfo[originalVKCode].onPress.code[i];
         }
 
-        if (isModifier(incomingEvent->vkCode))
-            incomingEvent->type = KEYTYPE_MODIFIER;
-
-        KeyMapStatus[originalVKCode] = (KeyStatus){
-            .activeCode = incomingEvent->vkCode,
-            .isActive = incomingEvent->keyDown
-        };
+        if (incomingEvent->type != KEYTYPE_UNICODE)
+        {
+            if (isModifier(incomingEvent->code[0]))
+                incomingEvent->type = KEYTYPE_MODIFIER;
+        }
     }
-
+    
     // hold functionality not implemented
 
     outgoingEvent = incomingEvent;
-    return sendEvent(outgoingEvent);
+    originalVKCode = outgoingEvent->originalVKCode;
+
+    KeyStatus keyStatus = KeyMapStatus[outgoingEvent->originalVKCode];
+
+    ReturnMsg returnMsg;
+    if (outgoingEvent->type == KEYTYPE_UNICODE)
+    {
+        //hantera flagga här... tror jag
+        returnMsg = sendUnicodeEvent(outgoingEvent);
+    }
+    else
+    {   
+        returnMsg = sendVKCodeEvent(outgoingEvent);
+    }
+    
+    if (!outgoingEvent->keyDown)
+    {
+        if (keyStatus.count > 0)
+        {
+            keyStatus.count--;
+        }
+        if (keyStatus.count < 1)
+        {
+            keyStatus.isActive = false;
+            for (size_t i = 0; i < KeyMapInfo[originalVKCode].onPress.size; i++)
+            {
+                keyStatus.activeCode[i] = NO_CODE;
+            }
+        }
+    }
+    else
+    {
+        for (size_t i = 0; i < KeyMapInfo[originalVKCode].onPress.size; i++)
+        {
+            keyStatus.activeCode[i] = outgoingEvent->code[i];
+        }
+        keyStatus.isActive = true;
+        keyStatus.count++;
+    }
+    
+    KeyMapStatus[outgoingEvent->originalVKCode] = keyStatus;
+    free(outgoingEvent);
+
+    return returnMsg;
 }
 
 void setMaps(KeyMapping* keyMapInfo, KeyStatus* keyMapStatus)
 {
     KeyMapInfo = keyMapInfo;
     KeyMapStatus = keyMapStatus;
-}
-
-ReturnMsg sendEvent(KeyEvent* event)
-{
-    ReturnMsg returnMsg;
-    if (event->type == KEYTYPE_UNICODE)
-    {
-        //hantera flagga här... tror jag
-        returnMsg = sendUnicodeEvent(event);
-    }
-    else
-    {
-        returnMsg = sendVKCodeEvent(event);
-    }
-    
-    free(event);
-    return returnMsg;
 }
 
 bool isModifier(unsigned short vkCode)
