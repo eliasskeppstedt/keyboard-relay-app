@@ -63,4 +63,5 @@ UTF-16 uses code values, however older unicode implementations use code pages...
 
 ### Mac
 Will be developed with [Quartz Event Services](https://leopard-adc.pepas.com/documentation/Carbon/Reference/QuartzEventServicesRef/QuartzEventServicesRef.pdf) in the [Core Graphics](https://developer.apple.com/documentation/coregraphics) framework.
-Dont know, but is a future goal
+### Linux
+TBD

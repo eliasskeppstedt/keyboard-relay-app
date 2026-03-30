@@ -227,7 +227,6 @@ ReturnMsg sendUnicodeEvent(KeyEvent* event)
         }
         
     }
-    printf("error size is %d but pos is %d!\n", size, pos);
     
     UINT inputsSent = SendInput(pos, inputs, sizeof(INPUT));
     free(inputs);

@@ -9,11 +9,13 @@ customization accessible to everyone.
 Website is managed in this repository: https://github.com/eliasskeppstedt/keyboard-relay-website
 
 ## Current state
-Work on daemon is started and should now support press modifications with virtual key codes. 
+Work on daemon is started and should now support press modifications for both virtual key codes
+and unicodes. 
 Cant get alt + shift + tab to work, when both alt and shift are synthetic. When holding synthetic
 alt and shift, tab is not even registred by the hook procedure, it is like windows is eating up
 the tab event. So for now, this combo will not work unless at least native alt or native shift
-is involved.
+is involved. It seems to be similar with some other system combinations, for example having `j` 
+mapped to the windows key brings up the game bar. 
 
 JSON integration is in place, such that the website mapping tool now can be used to generate
 a functional mapping for the program. 
