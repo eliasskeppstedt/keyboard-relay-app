@@ -121,13 +121,13 @@ KeyMapping* initKeyMapInfo()
     {
         keyMapInfo[i].onPress = (KeyAction){
             .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH,
-            .code = i,
+            .code[0] = i,
             .size = 1
         };
 
         keyMapInfo[i].onHold = (KeyAction){
             .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH,
-            .code = i,
+            .code[0] = i,
             .size = 1
         };
     }
