@@ -7,7 +7,9 @@
 #define INFO_EVENT_INJECTED 1
 
 #define VKC_COUNT 256
+#define UNICODE_COUNT 0x10FFFF
 #define NO_CODE 300
+#define UNICODE_MAX_CODE_POINTS 22
 
 #ifdef _WIN32
 
@@ -32,7 +34,7 @@ typedef enum ModifierKeys{
 } ModifierKeys;
 
 typedef enum KeyType{
-    KEYTYPE_VIRTUAL_KEYCODE_PASSTHROW = 0,
+    KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH = 0,
     KEYTYPE_VIRTUAL_KEYCODE,
     KEYTYPE_UNICODE,
     KEYTYPE_MODIFIER,

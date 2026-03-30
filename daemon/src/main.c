@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
     
     atexit(cleanup);
 
-    returnMsg = runEventLoop(keyMapStatus);
+    returnMsg = runEventLoop(keyMapStatus, keyMapInfo);
 
     free(keyMapStatus);
     free(keyMapInfo);

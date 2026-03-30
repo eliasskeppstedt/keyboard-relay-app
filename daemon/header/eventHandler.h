@@ -11,10 +11,10 @@ bool isModifier(unsigned short vkCode);
 
 // implement in os specific event handfler //
 
-ReturnMsg runEventLoop(KeyStatus* keyMapStatus);
+ReturnMsg runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo);
 KeyEvent* createEvent(void* osEvent);
 ReturnMsg sendVKCodeEvent(KeyEvent* event);
-ReturnMsg sendUnicodeEvent(KeyEvent* event); // bara support för unicodes med 2 code points atm
+ReturnMsg sendUnicodeEvent(KeyEvent* event);
 void registerHotKeys();
 void printLastError();
 void resetModifiers(KeyMapping* keyMapInfo);
