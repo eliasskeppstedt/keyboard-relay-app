@@ -8,7 +8,6 @@
 ReturnMsg sendEvent(KeyEvent* event);
 bool EscSeqIsPressed = false;
 
-const unsigned short EscWin = 0x1B; // byt efter mutli os support
 KeyMapping* KeyMapInfo; 
 KeyStatus* KeyMapStatus;
 
@@ -20,78 +19,91 @@ ReturnMsg handleEvent(KeyEvent* incomingEvent)
         return RETURN_MSG_EVENT_NOT_FOUND;
     }
     
-    if (incomingEvent->originalVKCode == EscWin) 
+    if (incomingEvent->srcKeyCode == Esc) 
     {   
         resetModifiers(KeyMapInfo);
         free(incomingEvent);
         return RETURN_MSG_QUIT_BY_USER;
     }
 
+    push(incomingEvent);
+    if (incomingEvent->srcKeyCode == CAPSLOCK) // same for every toggle key
+    {
+        /*KeyEvent* toggleEvent = malloc(sizeof(KeyEvent));
+        *toggleEvent = *incomingEvent;
+        push(toggleEvent);*/
+    }
+
     KeyEvent* outgoingEvent;
-    unsigned short originalVKCode = incomingEvent->originalVKCode;
-    
-    incomingEvent->type = KeyMapInfo[originalVKCode].onPress.type; 
-    if (incomingEvent->type != KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH)
-    {
-        for (size_t i = 0; i < KeyMapInfo[originalVKCode].onPress.size; i++)
-        {
-            incomingEvent->code[i] = KeyMapInfo[originalVKCode].onPress.code[i];
-        }
-
-        if (incomingEvent->type != KEYTYPE_UNICODE)
-        {
-            if (isModifier(incomingEvent->code[0]))
-                incomingEvent->type = KEYTYPE_MODIFIER;
-        }
-    }
-    
-    // hold functionality not implemented
-
-    outgoingEvent = incomingEvent;
-    originalVKCode = outgoingEvent->originalVKCode;
-
-    KeyStatus keyStatus = KeyMapStatus[outgoingEvent->originalVKCode];
-
     ReturnMsg returnMsg;
-    if (outgoingEvent->type == KEYTYPE_UNICODE)
-    {
-        //hantera flagga här... tror jag
-        returnMsg = sendUnicodeEvent(outgoingEvent);
-    }
-    else
-    {   
-        returnMsg = sendVKCodeEvent(outgoingEvent);
-    }
-    
-    if (!outgoingEvent->keyDown)
-    {
-        if (keyStatus.count > 0)
+
+    // hold functionality not implemented
+    while(true) {
+        ReturnValue returnValue = pop();
+        if (!(returnValue.msg == RETURN_MSG_OK))
         {
-            keyStatus.count--;
-        }
-        if (keyStatus.count < 1)
+            break;
+        }        
+
+        outgoingEvent = returnValue.value.event;
+
+        RLKeyCode srcKeyCode = outgoingEvent->srcKeyCode;
+
+        srcKeyCode = outgoingEvent->srcKeyCode;
+
+        size_t actionCodeSize = 0; // for unnicode, which has multiple code points
+        
+        outgoingEvent->type = KeyMapInfo[srcKeyCode].onPress.type; 
+        if (outgoingEvent->type != KEYTYPE_SRC_EVENT)
         {
-            keyStatus.isActive = false;
-            for (size_t i = 0; i < KeyMapInfo[originalVKCode].onPress.size; i++)
+            actionCodeSize = KeyMapInfo[srcKeyCode].onPress.size; // change when support for hold
+            for (size_t i = 0; i < actionCodeSize; i++)
             {
-                keyStatus.activeCode[i] = NO_CODE;
+                outgoingEvent->code[i] = KeyMapInfo[srcKeyCode].onPress.code[i];
+            }
+            if (outgoingEvent->type != KEYTYPE_UNICODE)
+            {
+                if (isModifier(outgoingEvent->code[0]))
+                {
+                    outgoingEvent->type = KEYTYPE_MODIFIER;
+                }
             }
         }
+
+        setKeyStatus(outgoingEvent);
+        Autorepeat:
+
+        if (outgoingEvent->type == KEYTYPE_UNICODE)
+        {
+            returnMsg = sendUnicodeEvent(outgoingEvent);
+        }
+        else
+        {
+            returnMsg = sendVKCodeEvent(outgoingEvent);
+        }
+        free(outgoingEvent);
+    }
+
+    return returnMsg;
+}
+
+ReturnMsg setKeyStatus(KeyEvent* event) 
+{
+    setStatusIsActive(event);
+    
+    if (event->keyDown)
+    {
+        for (size_t i = 0; i < UNICODE_MAX_CODE_POINTS; i++)
+        {
+            KeyMapStatus[event->srcKeyCode].activeCode[i] = event->code[i];
+        }
     }
     else
     {
-        for (size_t i = 0; i < KeyMapInfo[originalVKCode].onPress.size; i++)
-        {
-            keyStatus.activeCode[i] = outgoingEvent->code[i];
-        }
-        keyStatus.isActive = true;
-        keyStatus.count++;
+        KeyMapStatus[event->srcKeyCode].activeCode[0] = NO_CODE;
     }
-    
-    KeyMapStatus[outgoingEvent->originalVKCode] = keyStatus;
-    free(outgoingEvent);
 
-    return returnMsg;
+    return RETURN_MSG_OK;
 }
 
 void setMaps(KeyMapping* keyMapInfo, KeyStatus* keyMapStatus)
@@ -100,17 +112,20 @@ void setMaps(KeyMapping* keyMapInfo, KeyStatus* keyMapStatus)
     KeyMapStatus = keyMapStatus;
 }
 
-bool isModifier(unsigned short vkCode)
+bool isModifier(RLKeyCode vkCode)
 {
     switch (vkCode)
     {
-    case LSHIFT: break;
-    case RSHIFT: break;
-    case LCTRL : break;
-    case RCTRL : break;
-    case LALT  : break;
-    case RALT  : break;
-    default    : return false;
+    case LSHIFT   : return true;
+    case RSHIFT   : return true;
+    case LCTRL    : return true;
+    case RCTRL    : return true;
+    case LALT     : return true;
+    case RALT     : return true;
+    case LMETA    : return true;
+    case RMETA    : return true;
+    case CAPSLOCK : return true;
+    default       : return false;
     }
     return true;
 }

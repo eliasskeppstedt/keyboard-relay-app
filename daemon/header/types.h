@@ -5,9 +5,27 @@
 #include <stdint.h>
 #include "constants.h"
 
+#ifdef __APPLE__
+
+#include <CoreGraphics/CGEventTypes.h>
+#include <CoreGraphics/CGEventTypes.h>
+
+typedef int64_t RLKeyCode;
+typedef CGEventFlags RLFlags;
+typedef CGEventTimestamp RLTimestamp;
+typedef CGEventType RLEventType;
+
+#elif defined _WIN32
+
+#endif
+
+typedef struct ExtraKeyEventInfo{
+    CGEventType osEventType;
+} ExtraKeyEventInfo;
+
 typedef struct KeyAction{
     KeyType type;
-    unsigned long code[UNICODE_MAX_CODE_POINTS];
+    RLKeyCode code[UNICODE_MAX_CODE_POINTS];
     int size;
 } KeyAction;
 
@@ -18,18 +36,18 @@ typedef struct KeyMapping{
 
 typedef struct KeyStatus{
     bool isActive;
-    unsigned long activeCode[UNICODE_MAX_CODE_POINTS];
-    int count;
+    RLKeyCode activeCode[UNICODE_MAX_CODE_POINTS];
 } KeyStatus;
 
 typedef struct KeyEvent{
     KeyType type;
     // virtual code or unicode
-    unsigned short originalVKCode;
-    unsigned long code[UNICODE_MAX_CODE_POINTS];
-    unsigned long timeStamp;
-    unsigned long flags;
+    RLKeyCode srcKeyCode;
+    RLKeyCode code[UNICODE_MAX_CODE_POINTS];
+    RLTimestamp timeStamp;
+    RLFlags flags;
     bool keyDown;
+    ExtraKeyEventInfo extraInfo;
 } KeyEvent;
 
 typedef struct ModifierState{

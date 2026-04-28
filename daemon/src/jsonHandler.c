@@ -120,13 +120,13 @@ KeyMapping* initKeyMapInfo()
     for (size_t i = 0; i < VKC_COUNT; i++)
     {
         keyMapInfo[i].onPress = (KeyAction){
-            .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH,
+            .type = KEYTYPE_SRC_EVENT,
             .code[0] = i,
             .size = 1
         };
 
         keyMapInfo[i].onHold = (KeyAction){
-            .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH,
+            .type = KEYTYPE_SRC_EVENT,
             .code[0] = i,
             .size = 1
         };
@@ -148,8 +148,7 @@ KeyStatus* initKeyMapStatus()
     {
         keyMapStatus[i] = (KeyStatus) {
             .isActive = false,
-            .activeCode = NO_CODE,
-            .count = 0
+            .activeCode[0] = NO_CODE, // scan codes should be used instead
         };
     }
 

@@ -70,7 +70,7 @@ LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     
 
     if ((kbDLLHookStruct->flags & LLKHF_INJECTED) ||
-        (kbDLLHookStruct->dwExtraInfo == INFO_EVENT_INJECTED)) 
+        (kbDLLHookStruct->dwExtraInfo == USER_DATA_EVENT_INJECTED)) 
     {
         goto CallNext;
     }
@@ -132,8 +132,8 @@ KeyEvent* createEvent(void* osEvent)
     }
     
     *keyEvent = (KeyEvent) {
-        .type = KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH,
-        .originalVKCode = (unsigned short)event->vkCode,
+        .type = KEYTYPE_SRC_EVENT,
+        .srcKeyCode = (unsigned short)event->vkCode,
         .code = (unsigned short)event->vkCode,
         .keyDown = !(event->flags & LLKHF_UP),
         .flags = (unsigned long)event->flags,
@@ -161,7 +161,7 @@ ReturnMsg sendVKCodeEvent(KeyEvent* event) // check err codesizes
         .ki.wScan = MapVirtualKey(vkCodes[0], MAPVK_VK_TO_VSC),
         .ki.dwFlags = flags,
         .ki.time = event->timeStamp,
-        .ki.dwExtraInfo = INFO_EVENT_INJECTED
+        .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
     };
 
     UINT inputsSent = SendInput(pos, input, sizeof(INPUT));
@@ -179,7 +179,7 @@ ReturnMsg sendUnicodeEvent(KeyEvent* event)
     DWORD* codePoints = event->code;
     DWORD flags = KEYEVENTF_UNICODE | (!event->keyDown ? KEYEVENTF_KEYUP : 0);
 
-    int size = KeyMapInfo[event->originalVKCode].onPress.size;
+    int size = KeyMapInfo[event->srcKeyCode].onPress.size;
     INPUT* inputs = malloc(sizeof(INPUT) * size * 2);
     UINT pos = 0;
 
@@ -189,7 +189,7 @@ ReturnMsg sendUnicodeEvent(KeyEvent* event)
             .type = INPUT_KEYBOARD,
             .ki.wVk = 0,
             .ki.dwFlags = flags,
-            .ki.dwExtraInfo = INFO_EVENT_INJECTED
+            .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
         };
 
         if (codePoints[i] > 0x10FFFF) // undefined unicode
@@ -222,7 +222,7 @@ ReturnMsg sendUnicodeEvent(KeyEvent* event)
                 .ki.wVk = 0,
                 .ki.wScan = low,
                 .ki.dwFlags = flags,
-                .ki.dwExtraInfo = INFO_EVENT_INJECTED
+                .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
             };
         }
         
@@ -259,7 +259,7 @@ void resetModifiers(KeyMapping* keyMapInfo)
                 .ki.wVk = vkCode,
                 .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
                 .ki.dwFlags = KEYEVENTF_KEYUP,
-                .ki.dwExtraInfo = INFO_EVENT_INJECTED
+                .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
             };
         }
     }
@@ -277,7 +277,7 @@ void resetModifiers(KeyMapping* keyMapInfo)
                     .ki.wVk = vkCode,
                     .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
                     .ki.dwFlags = flags,
-                    .ki.dwExtraInfo = INFO_EVENT_INJECTED
+                    .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
                 };
             }
         }
