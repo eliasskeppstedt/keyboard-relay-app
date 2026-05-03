@@ -29,9 +29,12 @@ ReturnMsg handleEvent(KeyEvent* incomingEvent)
     push(incomingEvent);
     if (incomingEvent->srcKeyCode == CAPSLOCK) // same for every toggle key
     {
-        /*KeyEvent* toggleEvent = malloc(sizeof(KeyEvent));
+        KeyEvent* toggleEvent = malloc(sizeof(KeyEvent));
         *toggleEvent = *incomingEvent;
-        push(toggleEvent);*/
+        push(toggleEvent);
+
+        incomingEvent->keyDown = true;
+        toggleEvent->keyDown = false;
     }
 
     KeyEvent* outgoingEvent;
@@ -93,6 +96,7 @@ ReturnMsg setKeyStatus(KeyEvent* event)
     
     if (event->keyDown)
     {
+        printf("kd\n");
         for (size_t i = 0; i < UNICODE_MAX_CODE_POINTS; i++)
         {
             KeyMapStatus[event->srcKeyCode].activeCode[i] = event->code[i];
@@ -100,6 +104,7 @@ ReturnMsg setKeyStatus(KeyEvent* event)
     }
     else
     {
+        printf("ku\n");
         KeyMapStatus[event->srcKeyCode].activeCode[0] = NO_CODE;
     }
 
@@ -124,7 +129,7 @@ bool isModifier(RLKeyCode vkCode)
     case RALT     : return true;
     case LMETA    : return true;
     case RMETA    : return true;
-    case CAPSLOCK : return true;
+    //case CAPSLOCK : return true;
     default       : return false;
     }
     return true;

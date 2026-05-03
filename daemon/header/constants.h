@@ -37,6 +37,8 @@
 
 #define RLAutorepeat 8 // kCGEventKeyboardAutorepeat
 
+#define RLNullEvent 0 // kcgeventnull
+
 #endif
 
 typedef enum UserData{
@@ -53,6 +55,7 @@ typedef enum ModifierKeys{
     MODIFIERKEY_RIGHT_ALT,
     MODIFIERKEY_LEFT_META,
     MODIFIERKEY_RIGHT_META,
+    MODIFIERKEY_CAPSLOCK,
     MODIFIERKEY_COUNT,
     MODIFIERKEY_NOT_MODIFIER,
 } ModifierKeys;
