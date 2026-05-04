@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "../header/eventHandler.h"
+#include "../header/eventHandlerOs.h"
 #include "../header/eventQueue.h"
 #include "../header/jsonHandler.h"
 #include "../lib/cJSON.h"
@@ -22,9 +22,9 @@ int main(int argc, char* argv[]) {
     }
     
     char* path = argv[1];
-    ReturnMsg returnMsg = loadFile(path);
-    if (returnMsg != RETURN_MSG_OK)
-        return returnMsg;
+    int err = loadFile(path);
+    if (err != ERR_NIL)
+        return err;
 
     KeyMapping* keyMapInfo = initKeyMapInfo();
     if (!keyMapInfo) 
@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    EventQueue* eventQueue = calloc(1, sizeof(EventQueue));
+    RLEventQueue* eventQueue = calloc(1, sizeof(RLEventQueue));
     if (!eventQueue)
     {
         printf("Error: calloc failed for eventQueue\n");
@@ -59,13 +59,13 @@ int main(int argc, char* argv[]) {
     
     atexit(cleanup);
 
-    returnMsg = runEventLoop(keyMapStatus, keyMapInfo);
+    err = runEventLoop(keyMapStatus, keyMapInfo);
 
     free(keyMapStatus);
     free(keyMapInfo);
     free(eventQueue);
 
-    return returnMsg;
+    return ERR_NIL;
 }
 
 void cleanup()

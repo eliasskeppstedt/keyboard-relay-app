@@ -1,12 +1,20 @@
 #ifndef EVENTQUEUE_H
 #define EVENTQUEUE_H
 
-#include "../header/types.h"  
+#include "types.h" 
+#include "event.h"
+#include "constants.h"
 
-ReturnMsg push(KeyEvent* event);
-ReturnValue pop();
-KeyEvent* peek();
+typedef struct RLEventQueue {
+    RLEvent* buffer[MAX_QUEUE_SIZE];
+    size_t head;
+    size_t tail;
+} RLEventQueue;
 
-void setQueue(EventQueue* queue);
+int push(RLEvent* event);
+ReturnMsg pop();
+RLEvent* peek();
+
+void setQueue(RLEventQueue* queue);
 
 #endif // EVENTQUEUE_H

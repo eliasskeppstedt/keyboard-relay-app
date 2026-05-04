@@ -11,7 +11,7 @@ target_sources(keyboard-relay PRIVATE
 
 if(WIN32)
     target_sources(keyboard-relay PRIVATE
-        src/eventHandlerWin.c
+        src/windows/eventHandlerWin.c
     )
 #elseif(APPLE)
 #    target_sources(keyboard-relay PRIVATE
@@ -23,7 +23,8 @@ if(WIN32)
 #    )
 elseif(APPLE)
     target_sources(keyboard-relay PRIVATE
-        src/eventHandlerMac.c
+        src/mac/event.c
+        src/mac/eventHandler.c
     )
 
     target_link_libraries(keyboard-relay 

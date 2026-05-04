@@ -1,0 +1,105 @@
+{
+    "remaps": {
+        "layers": [
+            {
+                "name": "Main",
+                "id": 0,
+                "config": {},
+                "keys": [
+                    {
+                        "code": "KeyQ",
+                        "vkCode": 12,
+                        "actions": [
+                            {
+                                "press": {
+                                    "type": "vkCode",
+                                    "codes": [
+                                        48
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "code": "KeyA",
+                        "vkCode": 0,
+                        "actions": [
+                            {
+                                "press": {
+                                    "type": "vkCode",
+                                    "codes": [
+                                        56
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "code": "KeyD",
+                        "vkCode": 2,
+                        "actions": [
+                            {
+                                "press": {
+                                    "type": "vkCode",
+                                    "codes": [
+                                        59
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "code": "KeyF",
+                        "vkCode": 3,
+                        "actions": [
+                            {
+                                "press": {
+                                    "type": "vkCode",
+                                    "codes": [
+                                        58
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "code": "KeyG",
+                        "vkCode": 5,
+                        "actions": [
+                            {
+                                "press": {
+                                    "type": "vkCode",
+                                    "codes": [
+                                        55
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        "code": "CapsLock",
+                        "vkCode": 57,
+                        "actions": [
+                            {
+                                "press": {
+                                    "type": "vkCode",
+                                    "codes": [
+                                        0
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        "config": {
+            "os": "MAC",
+            "language": "swedish",
+            "standard": "Show All",
+            "keyboardName": "ISO - MacBook - Physical F-Keys",
+            "layout": "test"
+        },
+        "extras": []
+    }
+}
