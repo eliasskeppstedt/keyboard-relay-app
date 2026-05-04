@@ -6,12 +6,6 @@
 CGEventRef eventTapCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void* refcon);
 void printCGEvent(CGEventRef event);
 
-static unsigned long K_CG_EVENT_TAP_OPTION_DEFAULT = 0x00000000; // for Mac OS X v10.4 support
-static unsigned long EVENT_MASK = (
-    CGEventMaskBit(kCGEventKeyDown) |
-    CGEventMaskBit(kCGEventKeyUp) |
-    CGEventMaskBit(kCGEventFlagsChanged)
-);
 RLFlags curFlags = 0;
 
 const ModKey ModKeys[VKC_COUNT] = {
@@ -96,34 +90,28 @@ int runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo)
 {
     KeyMapStatus = keyMapStatus;
     KeyMapInfo = keyMapInfo;
-    
-    printf("Setting upp run loop... ");
+
     CFRunLoopRef runLoop = CFRunLoopGetMain();
     if (!runLoop) 
     {
         printf("Failed to set up run loop. [Write suggestions on why this may happen, else contact support blablabla] ");
         return ERR_RUN_DAEMON;
-    }
-    printf("ok\n");
-
-    printf("Setting upp event tap... ");
+    } 
+    
     CFMachPortRef eventTap = CGEventTapCreate(
-        kCGHIDEventTap,                // tap; window server, login session, specific annotation
-        kCGHeadInsertEventTap,         // places; head or tail
-        K_CG_EVENT_TAP_OPTION_DEFAULT, // options; default or listen only
-        EVENT_MASK,                    // eventsOfInterest; mouse, keyboard, etc
+    kCGHIDEventTap,                // tap; window server, login session, specific annotation
+        kCGHeadInsertEventTap,     // places; head or tail
+        _kCGEventTapOptionDefault, // options; default or listen only
+        EVENT_MASK,                // eventsOfInterest; mouse, keyboard, etc
         eventTapCallback,            
-        NULL                           // userInfo
+        NULL                       // userInfo
     );
-
     if (!eventTap) 
     {
         printf("Failed to set up event tap. [Write suggestions on why this may happen, else contact support blablabla] ");
         return ERR_RUN_DAEMON;
     }
-    printf("ok\n");
 
-    printf("Setting upp run loop source... ");
     CFRunLoopSourceRef runLoopSource = CFMachPortCreateRunLoopSource(
         kCFAllocatorDefault, 
         eventTap, 
@@ -134,22 +122,19 @@ int runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo)
         printf("Failed to set up run loop source. [Write suggestions on why this may happen, else contact support blablabla] ");
         return ERR_RUN_DAEMON;
     }
-    printf("ok\n");
 
-    printf("Adding source to run loop... \n");
     CFRunLoopAddSource(
         runLoop, 
         runLoopSource, 
         kCFRunLoopCommonModes
     );
 
-    printf("Enabeling event tap... \n");
     CGEventTapEnable(
         eventTap, 
         true
     );
 
-    printf("Starting run loop...\n\n");
+    printf("Starting run loop\n\n");
     CFRunLoopRun();
 
     CFMachPortInvalidate(eventTap);
