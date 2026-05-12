@@ -1,5 +1,8 @@
+// src/main.c
+
 #include <stdio.h>
 #include <stdlib.h>
+#include "../header/eventHandler.h"
 #include "../header/eventHandlerOs.h"
 #include "../header/eventQueue.h"
 #include "../header/jsonHandler.h"
@@ -22,9 +25,9 @@ int main(int argc, char* argv[]) {
     }
     
     char* path = argv[1];
-    int err = loadFile(path);
-    if (err != ERR_NIL)
-        return err;
+    int msg = loadFile(path);
+    if (msg != kRLErrorNone)
+        return msg;
 
     KeyMapping* keyMapInfo = initKeyMapInfo();
     if (!keyMapInfo) 
@@ -59,13 +62,13 @@ int main(int argc, char* argv[]) {
     
     atexit(cleanup);
 
-    err = runEventLoop(keyMapStatus, keyMapInfo);
+    msg = runEventLoop(keyMapStatus, keyMapInfo);
 
     free(keyMapStatus);
     free(keyMapInfo);
     free(eventQueue);
 
-    return ERR_NIL;
+    return msg;
 }
 
 void cleanup()

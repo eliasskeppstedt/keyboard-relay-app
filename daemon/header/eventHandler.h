@@ -1,12 +1,12 @@
 #ifndef EVHANDLER_H
 #define EVHANDLER_H
 
-#include "event.h"
+#include "types.h"
 
 // implement in event handler //
 
-int handleEvent(RLEvent* event);
+RLHandleResult RLEventHandle(void* osEvent);
+RLHandleResult RLEventHandleTimer(RLEvent* event);
 void setMaps(KeyMapping* keyMapInfo, KeyStatus* keyMapStatus);
-bool isModifier(RLKeyCode vkCode);
 
 #endif // EVHANDLER_

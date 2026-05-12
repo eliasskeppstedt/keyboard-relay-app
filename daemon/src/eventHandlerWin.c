@@ -31,7 +31,7 @@ Err runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo)
     if (!Hook)
     {
         printf("Error: Windows hook could not be installed\n");
-        return ERR_BAD_HOOK;
+        return kRLErrorBadHook;
     }
     
     MSG msg;
@@ -44,15 +44,15 @@ Err runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo)
             printf("error occured");
             // handle the error and possibly exit
         }
-        /*else if (msg.message == WM_HOTKEY)
-        {
-            // hantera hotkey,,, bör vara user defined
-            switch (msg.wParam)
-            {
-            case 1:
-                break;
-            }
-        }*/
+        //else if (msg.message == WM_HOTKEY)
+        //{
+        //    // hantera hotkey,,, bör vara user defined
+        //    switch (msg.wParam)
+        //    {
+        //    case 1:
+        //        break;
+        //    }
+        //}
         else
         {
             TranslateMessage(&msg); 
@@ -61,7 +61,7 @@ Err runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo)
     }
 
     UnhookWindowsHookEx(Hook);
-    return ERR_NIL;
+    return kRLErrorNone;
 }
 
 LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) 
@@ -71,7 +71,7 @@ LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
     
 
     if ((kbDLLHookStruct->flags & LLKHF_INJECTED) ||
-        (kbDLLHookStruct->dwExtraInfo == USER_DATA_EVENT_INJECTED)) 
+        (kbDLLHookStruct->dwExtraInfo == kRLUserDataEventInjected)) 
     {
         goto CallNext;
     }
@@ -83,7 +83,7 @@ LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         goto CallNext;
     }
 
-    Err Err = handleEvent(event);
+    Err Err = RLEventHandle(event);
 
     switch (Err)
     {
@@ -91,19 +91,19 @@ LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         printf("Error: Queue rached max size!\n");
         PostQuitMessage(0);
         return 1; 
-    case ERR_QUEUE_EMPTY:
+    case kRLErrorQueueEmpty:
         printf("Error: Tried to pop from empty queue\n");
         PostQuitMessage(0);
         return 1; 
-    case ERR_EVENT_NOT_FOUND:
+    case kRLErrorEventNotFound:
         perror("Error: Event not found\n");
         PostQuitMessage(0);
         return 1; 
-    case ERR_QUIT_BY_USER:
+    case kRLErrorQuitByUser:
         printf("Program exited by user escape sequence\n");
         PostQuitMessage(0);
         return 1; 
-    case ERR_SYNT_EVENT_FAILED:
+    case kRLErrorSyntheticEventFailed:
         printf("Program ate a modifier key\n");
         return 1; 
     case ERR_KEY_UP:
@@ -143,7 +143,7 @@ RLEvent* createEvent(void* osEvent)
     return rlEvent;
 }
 
-Err sendVKCodeEvent(RLEvent* event) // check err codesizes
+Err sendVKCodeEvent(RLEvent* event) // check msg codesizes
 {   
     WORD* vkCodes = (WORD*)event->code;
     DWORD flags = 0;
@@ -162,15 +162,15 @@ Err sendVKCodeEvent(RLEvent* event) // check err codesizes
         .ki.wScan = MapVirtualKey(vkCodes[0], MAPVK_VK_TO_VSC),
         .ki.dwFlags = flags,
         .ki.time = event->timeStamp,
-        .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
+        .ki.dwExtraInfo = kRLUserDataEventInjected
     };
 
     UINT inputsSent = SendInput(pos, input, sizeof(INPUT));
 
     if (inputsSent != pos)
     {
-        fprintf(stderr, "Error: synt event failed (err %lu)\n", GetLastError());
-        return ERR_SYNT_EVENT_FAILED;
+        fprintf(stderr, "Error: synt event failed (msg %lu)\n", GetLastError());
+        return kRLErrorSyntheticEventFailed;
     }
     return ERR_SYNT_EVENT;
 } 
@@ -190,20 +190,20 @@ Err sendUnicodeEvent(RLEvent* event)
             .type = INPUT_KEYBOARD,
             .ki.wVk = 0,
             .ki.dwFlags = flags,
-            .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
+            .ki.dwExtraInfo = kRLUserDataEventInjected
         };
 
         if (codePoints[i] > 0x10FFFF) // undefined unicode
         {
             printf("Error: codepoint too big");
             free(inputs);
-            return ERR_INVALID_UNICODE;
+            return kRLErrorInvalidUnicode;
         }
         if (codePoints[i] >= 0xD800 && codePoints[i] <= 0xDFFF) // surrogate code value
         {
             printf("Error: codepoint cant be a surrogate code value");
             free(inputs);
-            return ERR_INVALID_UNICODE;
+            return kRLErrorInvalidUnicode;
         }
         
         if (codePoints[i] <= 0xFFFF) // BMP
@@ -223,7 +223,7 @@ Err sendUnicodeEvent(RLEvent* event)
                 .ki.wVk = 0,
                 .ki.wScan = low,
                 .ki.dwFlags = flags,
-                .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
+                .ki.dwExtraInfo = kRLUserDataEventInjected
             };
         }
         
@@ -235,7 +235,7 @@ Err sendUnicodeEvent(RLEvent* event)
     if (inputsSent != pos)
     {
         printLastError();
-        return ERR_SYNT_EVENT_FAILED;
+        return kRLErrorSyntheticEventFailed;
     }
     return ERR_SYNT_EVENT;
 }
@@ -260,11 +260,11 @@ void resetModifiers(KeyMapping* keyMapInfo)
                 .ki.wVk = vkCode,
                 .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
                 .ki.dwFlags = KEYEVENTF_KEYUP,
-                .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
+                .ki.dwExtraInfo = kRLUserDataEventInjected
             };
         }
     }
-    for (size_t i = 0; i < MODIFIERKEY_COUNT; i++) // check err codesize
+    for (size_t i = 0; i < MODIFIERKEY_COUNT; i++) // check msg codesize
     {
         WORD vkCode = (WORD)ModifierEvents[i].code[0];
         DWORD flags = KEYEVENTF_KEYUP | ModifierEvents[i].flags;
@@ -278,7 +278,7 @@ void resetModifiers(KeyMapping* keyMapInfo)
                     .ki.wVk = vkCode,
                     .ki.wScan = MapVirtualKey(vkCode, MAPVK_VK_TO_VSC),
                     .ki.dwFlags = flags,
-                    .ki.dwExtraInfo = USER_DATA_EVENT_INJECTED
+                    .ki.dwExtraInfo = kRLUserDataEventInjected
                 };
             }
         }

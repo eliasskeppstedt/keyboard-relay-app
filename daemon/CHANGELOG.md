@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.0.2 (2026-03-30)
+uhm a bit to late with this changelog...
+
 ## 0.0.1 (2026-03-23)
 Features:
 - windows release only

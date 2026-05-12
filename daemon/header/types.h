@@ -12,32 +12,53 @@
 typedef uint32_t         RLKeyCode;
 typedef CGEventFlags     RLFlags;
 typedef CGEventTimestamp RLTimestamp;
-typedef CGEventType      RLEventType;
 typedef UniChar          RLUnicode;
 typedef UniCharCount     RLUnicodeLen;
+typedef CGEventType      OSEventType;
+typedef CFAbsoluteTime   RLAbsoluteTime;
 
 #elif defined _WIN32
 
 #endif
 
-typedef struct ModKey{
-    RLFlags flag;
-} ModKey;
+typedef union RLSendCode{
+    RLKeyCode keyCode;
+    struct {
+        RLUnicode chars[UNICODE_MAX_CODE_POINTS];
+        RLUnicodeLen length;
+    } unicode;
+} RLSendCode;
 
-typedef enum RLKeyType{
-    RL_KEY_SRC,
-    RL_KEY_VIRTUAL,
-    RL_KEY_UNICODE,
-} RLKeyType;
+typedef struct RLEvent{
+    RLKeyCode srcKeyCode;
+    RLOutputType outputType;
+    OSEventType osEventType;
+    RLActionType action;
+    //RLInputEventKind inputEventKind;
+    RLSendCode sendCode;
+    bool keyDown;
+    RLFlags flags;
+    RLTimestamp timestamp;
+    void* timer;
+} RLEvent;
+
+typedef struct RLEventQueue {
+    RLEvent* buffer[MAX_QUEUE_SIZE];
+    size_t head;
+    size_t tail;
+} RLEventQueue;
+
+typedef struct SpecialKey{
+    RLFlags flag;
+} SpecialKey;
 
 typedef struct ExtraRLEventInfo{
     CGEventType osEventType;
 } ExtraRLEventInfo;
 
 typedef struct KeyAction{
-    KeyType type;
-    RLKeyCode code[UNICODE_MAX_CODE_POINTS];
-    int size;
+    RLOutputType outputType;
+    RLSendCode sendCode;
 } KeyAction;
 
 typedef struct KeyMapping{
@@ -47,14 +68,9 @@ typedef struct KeyMapping{
 
 typedef struct KeyStatus{
     bool keyDown;
-    RLKeyType keyType;
-    union {
-        RLKeyCode keyCode;
-        struct {
-            RLUnicode chars[UNICODE_MAX_CODE_POINTS];
-            RLUnicodeLen length;
-        } unicode;
-    } activeCode;
+    RLSendCode activeSendCode;
+    RLOutputType activeOutputType;
+    RLActionType activeActionType;
 } KeyStatus;
 
 typedef struct ModifierState{
@@ -63,12 +79,16 @@ typedef struct ModifierState{
 } ModifierState;
 
 typedef struct ReturnMsg{    
-    void* msg;
-    int err;
+    void* value;
+    int msg;
 } ReturnMsg;
 
 typedef struct Settings{
     int tmp;
 } Settings;
+
+typedef struct TimerContext{
+    RLEvent* event;
+} TimerContext;
 
 #endif // TYPES_H

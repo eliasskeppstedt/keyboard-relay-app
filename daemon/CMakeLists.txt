@@ -23,7 +23,6 @@ if(WIN32)
 #    )
 elseif(APPLE)
     target_sources(keyboard-relay PRIVATE
-        src/mac/event.c
         src/mac/eventHandler.c
     )
 

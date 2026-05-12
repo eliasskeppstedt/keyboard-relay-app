@@ -1,23 +1,48 @@
+// src/mac/eventHandler.c
+
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "../../header/eventHandler.h"
 #include "../../header/eventHandlerOs.h"
+#include "../../header/mac.h"
 
 CGEventRef eventTapCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void* refcon);
 void printCGEvent(CGEventRef event);
+void timerCallback(CFRunLoopTimerRef timer, void* refcon);
 
-RLFlags curFlags = 0;
-
-const ModKey ModKeys[VKC_COUNT] = {
-    [LSHIFT ] = { .flag = kCGEventFlagMaskShift      },
-    [RSHIFT ] = { .flag = kCGEventFlagMaskShift      },
-    [LCTRL  ] = { .flag = kCGEventFlagMaskControl    },
-    [RCTRL  ] = { .flag = kCGEventFlagMaskControl    },
-    [LALT   ] = { .flag = kCGEventFlagMaskAlternate  },
-    [RALT   ] = { .flag = kCGEventFlagMaskAlternate  },
-    [LMETA  ] = { .flag = kCGEventFlagMaskCommand    },
-    [RMETA  ] = { .flag = kCGEventFlagMaskCommand    },
-    [CAPS   ] = { .flag = kCGEventFlagMaskAlphaShift },
+RLFlags CurFlags = 0;
+const SpecialKey SpecialKeys[VKC_COUNT] = {
+    [kVK_Shift               ] = { .flag = kCGEventFlagMaskShift       },
+    [kVK_RightShift          ] = { .flag = kCGEventFlagMaskShift       },
+    [kVK_Control             ] = { .flag = kCGEventFlagMaskControl     },
+    [kVK_RightControl        ] = { .flag = kCGEventFlagMaskControl     },
+    [kVK_Option              ] = { .flag = kCGEventFlagMaskAlternate   },
+    [kVK_RightOption         ] = { .flag = kCGEventFlagMaskAlternate   },
+    [kVK_Command             ] = { .flag = kCGEventFlagMaskCommand     },
+    [kVK_RightCommand        ] = { .flag = kCGEventFlagMaskCommand     },
+    [kVK_CapsLock            ] = { .flag = kCGEventFlagMaskAlphaShift  },
+    [kVK_Function            ] = { .flag = kCGEventFlagMaskSecondaryFn },
+    /*
+    [kVK_ANSI_Keypad0        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_Keypad1        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_Keypad2        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_Keypad3        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_Keypad4        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_Keypad5        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_Keypad6        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_Keypad7        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_Keypad8        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_Keypad9        ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_KeypadDecimal  ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_KeypadPlus     ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_KeypadMinus    ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_KeypadMultiply ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_KeypadDivide   ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_KeypadEquals   ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_KeypadEnter    ] = { .flag = kCGEventFlagMaskNumericPad  },
+    [kVK_ANSI_KeypadClear    ] = { .flag = kCGEventFlagMaskNumericPad  },
+    */
 };
 
 KeyStatus* KeyMapStatus;
@@ -26,21 +51,21 @@ KeyMapping* KeyMapInfo;
 CGEventRef eventTapCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void* refcon) 
 {
     int64_t userData = CGEventGetIntegerValueField(event, kCGEventSourceUserData);
-    if (userData == USER_DATA_EVENT_INJECTED) 
+    if (userData == kRLUserDataEventInjected) 
         goto ReturnEvent;
 
-    RLEvent* rlEvent = RLEventCreate(event);
-    
-    if (!rlEvent) 
-        goto ReturnEvent;
-
-    switch (handleEvent(rlEvent))
+    switch (RLEventHandle(event))
     {
-    case ERR_NIL:
-        return NULL;
-    case ERR_EVENT_NOT_FOUND:
+    case kRLHandleResultError:
+        CFRunLoopStop(CFRunLoopGetMain());
         break;
-    default:
+    case kRLHandleResultHandled:
+        return NULL;
+    case kRLHandleResultPendingHold:
+        return NULL;
+    case kRLHandleResultPassThrough:
+        break;
+    default: 
         break;
     }
     
@@ -48,26 +73,134 @@ CGEventRef eventTapCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef 
     return event;
 }
 
-// also sets keyDown for modifier keys
-int setKeyStatus(RLEvent* event) 
-{
-    return ERR_NIL;
+RLEvent* RLEventCreate(void* osEvent) {
+    CGEventRef event = (CGEventRef) osEvent;
+    if (!event)
+    {
+        printf("Could not convert void pointer to CGEventRef\n");
+        return NULL;
+    }
+
+    RLEvent* rlEvent = malloc(sizeof(RLEvent));
+    if (!rlEvent)
+    {
+        printf("rlEvent malloc failed\n");
+        return NULL;
+    }
+
+    *rlEvent = (RLEvent){
+        .srcKeyCode = CGEventGetIntegerValueField(event,kCGKeyboardEventKeycode),
+        .sendCode.keyCode = CGEventGetIntegerValueField(event,kCGKeyboardEventKeycode),
+        .osEventType = CGEventGetType(event),
+        //.inputEventKind = kRLInputEventKindKeyboard,
+        .outputType = kRLOutputTypeKeyCode,
+        .action = kRLActionTypePress,
+        .flags = CGEventGetFlags(event),
+        .timestamp  = CGEventGetTimestamp(event),
+    };
+
+    return rlEvent;
 }
 
-int sendEvent(RLEvent* rlEvent) 
+RLError setKeyDownStatus(RLEvent* event) 
 {
-    /*
+    if (event->osEventType == kCGEventFlagsChanged) // modifiers
+    {
+        KeyMapStatus[event->srcKeyCode].keyDown = event->flags & SpecialKeys[event->srcKeyCode].flag;
+    }
+    else
+    {
+        KeyMapStatus[event->srcKeyCode].keyDown = event->osEventType == kCGEventKeyDown;
+    }
+
+    event->keyDown = KeyMapStatus[event->srcKeyCode].keyDown;
+
+    return kRLErrorNone;
+}
+
+RLHandleResult RLEventVKCSend(RLEvent* rlEvent) 
+{
+    if (isModifier(rlEvent->sendCode.keyCode))
+    {
+        if (KeyMapStatus[rlEvent->srcKeyCode].keyDown)
+            CurFlags |= SpecialKeys[rlEvent->sendCode.keyCode].flag;
+        else
+            CurFlags &= ~SpecialKeys[rlEvent->sendCode.keyCode].flag;
+    }
+    
     CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
-    CGEventRef event = CGEventCreateKeyboardEvent(src, rlEvent->code[0], rlEvent->keyDown);    
-    CGEventSetIntegerValueField(event, kCGEventSourceUserData, USER_DATA_EVENT_INJECTED);
-    CGEventSetFlags(event, curFlags);
-    CGEventSetTimestamp(event, CFAbsoluteTimeGetCurrent());
-    CGEventPost(kCGHIDEventTap, event);
+    if (!src)
+    {
+        printf("create event src for new keycode cgevent failed, pass through src event\n");
+        return kRLHandleResultPassThrough;
+    }
+    
+    CGEventRef event = CGEventCreateKeyboardEvent(
+        src, 
+        rlEvent->sendCode.keyCode, 
+        rlEvent->keyDown
+    );
+    if (!event)
+    {
+        CFRelease(src);
+        printf("create keyboard event for new keycode cgevent failed, pass through src event\n");
+        return kRLHandleResultPassThrough;
+    }
     printCGEvent(event);
+
+    CGEventSetIntegerValueField(event, kCGEventSourceUserData, kRLUserDataEventInjected);
+    CGEventSetFlags(event, CurFlags);
+    CGEventSetTimestamp(event, CFAbsoluteTimeGetCurrent());
+
+    CGEventPost(kCGHIDEventTap, event);
+
     CFRelease(src);
     CFRelease(event);
-    */
-    return ERR_NIL;
+    return kRLHandleResultHandled;
+}
+
+RLHandleResult RLEventUniSend(RLEvent* rlEvent) 
+{
+    CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStateHIDSystemState);
+    if (!src)
+    {
+        printf("create event src for new unicode cgevent failed, pass through src event\n");
+        return kRLHandleResultPassThrough;
+    }
+
+    CGEventRef event = CGEventCreateKeyboardEvent(
+        src, 
+        0,
+        rlEvent->keyDown
+    );
+    if (!event)
+    {
+        CFRelease(src);
+        printf("create keyboard event for new keycode cgevent failed, pass through src event\n");
+        return kRLHandleResultPassThrough;
+    }
+
+    CGEventKeyboardSetUnicodeString(
+        event, 
+        rlEvent->sendCode.unicode.length, 
+        rlEvent->sendCode.unicode.chars
+    );
+
+    CGEventSetIntegerValueField(event, kCGEventSourceUserData, kRLUserDataEventInjected);
+    CGEventSetFlags(event, CurFlags);
+    CGEventSetTimestamp(event, CFAbsoluteTimeGetCurrent());
+
+    CGEventPost(kCGHIDEventTap, event);
+
+    CFRelease(src);
+    CFRelease(event);
+    return kRLHandleResultHandled;
+}
+
+
+bool isModifier(RLKeyCode keyCode)
+{
+    return keyCode < VKC_COUNT && SpecialKeys[keyCode].flag != 0;
 }
 
 void registerHotKeys() 
@@ -85,6 +218,65 @@ void resetModifiers(KeyMapping* keyMapInfo)
     // TODO
 }
 
+void timerCallback(CFRunLoopTimerRef timer, void* refcon)
+{
+    TimerContext* ctx = (TimerContext*)refcon;
+    if (!ctx || !ctx->event) {
+        CFRunLoopStop(CFRunLoopGetMain());
+        return;
+    }
+    RLEventHandleTimer(ctx->event);
+    free(ctx);
+}
+
+RLError startHoldTimer(RLEvent* event, RLAbsoluteTime delayMillisec)
+{
+    TimerContext* ctx = malloc(sizeof(TimerContext));
+    if (!ctx)
+        return kRLErrorMallocFailed;
+
+    ctx->event = event;
+
+    CFRunLoopTimerContext timerCtx = {
+        .version = 0,
+        .info = ctx,
+        .retain = NULL,
+        .release = NULL,
+        .copyDescription = NULL
+    };
+
+    CFAbsoluteTime delaySeconds = delayMillisec / 1000.0;
+
+    CFRunLoopTimerRef timer = CFRunLoopTimerCreate(
+        kCFAllocatorDefault,
+        CFAbsoluteTimeGetCurrent() + delaySeconds,
+        0, 0, 0,
+        timerCallback,
+        &timerCtx
+    );
+
+    if (!timer) {
+        free(ctx);
+        return kRLErrorTimerFailed;
+    }
+
+    event->timer = (CFRunLoopTimerRef)CFRetain(timer);
+    CFRunLoopAddTimer(CFRunLoopGetMain(), timer, kCFRunLoopCommonModes);
+    CFRelease(timer);
+
+    return kRLErrorNone;
+}
+
+void RLTimerInvalidate(void* refcon)
+{
+    CFRunLoopTimerRef timer = (CFRunLoopTimerRef)refcon;
+    if (!timer)
+    {
+        printf("no timer on event\n");
+        return;
+    }
+    CFRunLoopTimerInvalidate(timer);
+}
 
 int runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo) 
 {
@@ -95,7 +287,7 @@ int runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo)
     if (!runLoop) 
     {
         printf("Failed to set up run loop. [Write suggestions on why this may happen, else contact support blablabla] ");
-        return ERR_RUN_DAEMON;
+        return kRLErrorRunDaemon;
     } 
     
     CFMachPortRef eventTap = CGEventTapCreate(
@@ -109,7 +301,7 @@ int runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo)
     if (!eventTap) 
     {
         printf("Failed to set up event tap. [Write suggestions on why this may happen, else contact support blablabla] ");
-        return ERR_RUN_DAEMON;
+        return kRLErrorRunDaemon;
     }
 
     CFRunLoopSourceRef runLoopSource = CFMachPortCreateRunLoopSource(
@@ -120,7 +312,7 @@ int runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo)
     if (!runLoopSource) 
     {
         printf("Failed to set up run loop source. [Write suggestions on why this may happen, else contact support blablabla] ");
-        return ERR_RUN_DAEMON;
+        return kRLErrorRunDaemon;
     }
 
     CFRunLoopAddSource(
@@ -142,45 +334,5 @@ int runEventLoop(KeyStatus* keyMapStatus, KeyMapping* keyMapInfo)
     CFRelease(eventTap);
 
     printf("\nEvent loop closed\n");
-    return ERR_NIL;
-}
-
-void printCGEvent(CGEventRef event)
-{
-    CGEventType type = CGEventGetType(event);
-    const char* typeName = "UNKNOWN_CG_EVENT_TYPE";
-
-    switch (type)
-    {
-    case kCGEventNull: typeName = "kCGEventNull"; break;
-    case kCGEventKeyDown: typeName = "kCGEventKeyDown"; break;
-    case kCGEventKeyUp: typeName = "kCGEventKeyUp"; break;
-    case kCGEventFlagsChanged: typeName = "kCGEventFlagsChanged"; break;
-    case kCGEventScrollWheel: typeName = "kCGEventScrollWheel"; break;
-    case kCGEventTabletPointer: typeName = "kCGEventTabletPointer"; break;
-    case kCGEventTabletProximity: typeName = "kCGEventTabletProximity"; break;
-    case kCGEventTapDisabledByTimeout: typeName = "kCGEventTapDisabledByTimeout"; break;
-    case kCGEventTapDisabledByUserInput: typeName = "kCGEventTapDisabledByUserInput"; break;
-    default: break;
-    }
-    printf("New ");
-    printf(
-        "CGEvent {\n"
-        "  type=%u (%s),\n"
-        "  timestamp=%llu,\n"
-        "  flags=0x%llx,\n"
-        "  keycode=%lld,\n"
-        "  autorepeat=%lld,\n"
-        "  keyboardType=%lld,\n"
-        "  sourceUserData=%lld\n"
-        "}\n",
-        (unsigned int)type,
-        typeName,
-        (unsigned long long)CGEventGetTimestamp(event),
-        (unsigned long long)CGEventGetFlags(event),
-        (long long)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode),
-        (long long)CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat),
-        (long long)CGEventGetIntegerValueField(event, kCGKeyboardEventKeyboardType),
-        (long long)CGEventGetIntegerValueField(event, kCGEventSourceUserData)
-    );
+    return kRLErrorNone;
 }
