@@ -8,7 +8,7 @@
 #include "../../header/mac.h"
 
 CGEventRef eventTapCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void* refcon);
-void printCGEvent(CGEventRef event);
+//void printCGEvent(CGEventRef event);
 void timerCallback(CFRunLoopTimerRef timer, void* refcon);
 
 RLFlags CurFlags = 0;
@@ -146,7 +146,6 @@ RLHandleResult RLEventVKCSend(RLEvent* rlEvent)
         printf("create keyboard event for new keycode cgevent failed, pass through src event\n");
         return kRLHandleResultPassThrough;
     }
-    printCGEvent(event);
 
     CGEventSetIntegerValueField(event, kCGEventSourceUserData, kRLUserDataEventInjected);
     CGEventSetFlags(event, CurFlags);
