@@ -8,17 +8,65 @@ customization accessible to everyone.
 
 Website is managed in this repository: https://github.com/eliasskeppstedt/keyboard-relay-website
 
-## Current state
-Work on daemon is started and should now support press modifications for both virtual key codes
-and unicodes. 
-Cant get alt + shift + tab to work, when both alt and shift are synthetic. When holding synthetic
-alt and shift, tab is not even registred by the hook procedure, it is like windows is eating up
-the tab event. So for now, this combo will not work unless at least native alt or native shift
-is involved. It seems to be similar with some other system combinations, for example having `j` 
-mapped to the windows key brings up the game bar. 
+## Current state (v0.0.3)
+Latest status of windows release [v0.0.2](https://github.com/eliasskeppstedt/keyboard-relay-app/tree/cd1107d5e421ce4ed343eb6afcdf4461eb883d3b).
 
-JSON integration is in place, such that the website mapping tool now can be used to generate
-a functional mapping for the program. 
+v0.0.2 has macOS support, where both press and hold remaps are available to create. The website should be compliant
+with this versions new json structure, however if it isnt this is the new structure of it:
+```json
+{
+    "remaps": {
+        "layers": [
+            {
+                "name": "Main",
+                "id": 0,
+                "config": {},
+                "keys": [
+                    {
+                        "code": "KeyA",
+                        "vkCode": 65,
+                        "actions": [
+                            {
+                                "type": "press",
+                                "outputType": "vkCode",
+                                "codes": [
+                                    [
+                                        31
+                                    ]
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "code": "KeyH",
+                        "vkCode": 4,
+                        "actions": [
+                            {
+                                "type": "hold",
+                                "outputType": "unicode",
+                                "codes": [
+                                    [
+                                        55357, 56842
+                                    ]
+                                ]
+                            }
+                        ]
+                    },
+                ]
+            }
+        ],
+        "config": {
+            "os": "WINDOWS",
+            "language": "swedish",
+            "standard": "Show All",
+            "keyboardName": "ISO 100 - Generic",
+            "layout": "My Remap"
+        },
+        "extras": []
+    }
+}
+```
+where `a` is mapped to `o` when pressed and `h`mapped to `😊` when held.
 
 ## Run program
 
