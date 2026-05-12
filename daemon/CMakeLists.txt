@@ -11,7 +11,7 @@ target_sources(keyboard-relay PRIVATE
 
 if(WIN32)
     target_sources(keyboard-relay PRIVATE
-        src/eventHandlerWin.c
+        src/windows/eventHandlerWin.c
     )
 #elseif(APPLE)
 #    target_sources(keyboard-relay PRIVATE
@@ -21,16 +21,30 @@ if(WIN32)
 #    target_sources(keyboard-relay PRIVATE
 #        src/eventHandlerLinux.c
 #    )
+elseif(APPLE)
+    target_sources(keyboard-relay PRIVATE
+        src/mac/eventHandler.c
+    )
+
+    target_link_libraries(keyboard-relay 
+        "-framework ApplicationServices"
+        "-framework CoreFoundation"
+    )
+
 endif()
 
 if(MSVC)
-    target_compile_options(keyboard-relay PRIVATE /W4)
+    target_compile_options(keyboard-relay PRIVATE 
+        /W4
+    )
 
     set_property(TARGET keyboard-relay PROPERTY
         MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
     )
 else()
-    target_compile_options(keyboard-relay PRIVATE -Wall -Wextra)
+    target_compile_options(keyboard-relay PRIVATE 
+        -Wall -Wextra -Wpedantic
+    )
 endif()
 
 target_include_directories(keyboard-relay PRIVATE

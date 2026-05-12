@@ -89,11 +89,11 @@ typedef struct {
     const unsigned char *json;
     size_t position;
 } error;
-static error global_error = { NULL, 0 };
+static error global = { NULL, 0 };
 
 CJSON_PUBLIC(const char *) cJSON_GetErrorPtr(void)
 {
-    return (const char*) (global_error.json + global_error.position);
+    return (const char*) (global.json + global.position);
 }
 
 CJSON_PUBLIC(char *) cJSON_GetStringValue(const cJSON * const item)
@@ -380,7 +380,7 @@ loop_end:
     {
         /* free the temporary buffer */
         input_buffer->hooks.deallocate(number_c_string);
-        return false; /* parse_error */
+        return false; /* parse */
     }
 
     item->valuedouble = number;
@@ -1145,8 +1145,8 @@ CJSON_PUBLIC(cJSON *) cJSON_ParseWithLengthOpts(const char *value, size_t buffer
     cJSON *item = NULL;
 
     /* reset error position */
-    global_error.json = NULL;
-    global_error.position = 0;
+    global.json = NULL;
+    global.position = 0;
 
     if (value == NULL || 0 == buffer_length)
     {
@@ -1194,25 +1194,25 @@ fail:
 
     if (value != NULL)
     {
-        error local_error;
-        local_error.json = (const unsigned char*)value;
-        local_error.position = 0;
+        error local;
+        local.json = (const unsigned char*)value;
+        local.position = 0;
 
         if (buffer.offset < buffer.length)
         {
-            local_error.position = buffer.offset;
+            local.position = buffer.offset;
         }
         else if (buffer.length > 0)
         {
-            local_error.position = buffer.length - 1;
+            local.position = buffer.length - 1;
         }
 
         if (return_parse_end != NULL)
         {
-            *return_parse_end = (const char*)local_error.json + local_error.position;
+            *return_parse_end = (const char*)local.json + local.position;
         }
 
-        global_error = local_error;
+        global = local;
     }
 
     return NULL;

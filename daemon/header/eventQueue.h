@@ -1,12 +1,12 @@
 #ifndef EVENTQUEUE_H
 #define EVENTQUEUE_H
 
-#include "../header/types.h"  
+#include "types.h" 
 
-ReturnMsg push(KeyEvent* event);
-ReturnValue pop();
-KeyEvent* peek();
+RLError push(RLEvent* event);
+RLEvent* pop();
+RLEvent* peek();
 
-void setQueue(EventQueue* queue);
+void setQueue(RLEventQueue* queue);
 
 #endif // EVENTQUEUE_H

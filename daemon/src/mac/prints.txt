@@ -1,0 +1,78 @@
+void printCGEvent(CGEventRef event)
+{
+    CGEventType type = CGEventGetType(event);
+    CGEventFlags flags = CGEventGetFlags(event);
+    CGPoint location = CGEventGetLocation(event);
+    int64_t keyCode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+    int64_t userData = CGEventGetIntegerValueField(event, kCGEventSourceUserData);
+    int64_t autorepeat = CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat);
+    int64_t keyboardType = CGEventGetIntegerValueField(event, kCGKeyboardEventKeyboardType);
+    CGEventFlags keyFlag = 0;
+    const char* typeName = "UNKNOWN_CG_EVENT_TYPE";
+    const char* direction = "unknown";
+
+    switch (type)
+    {
+    case kCGEventNull: typeName = "kCGEventNull"; break;
+    case kCGEventKeyDown: typeName = "kCGEventKeyDown"; break;
+    case kCGEventKeyUp: typeName = "kCGEventKeyUp"; break;
+    case kCGEventFlagsChanged: typeName = "kCGEventFlagsChanged"; break;
+    case kCGEventScrollWheel: typeName = "kCGEventScrollWheel"; break;
+    case kCGEventTabletPointer: typeName = "kCGEventTabletPointer"; break;
+    case kCGEventTabletProximity: typeName = "kCGEventTabletProximity"; break;
+    case kCGEventTapDisabledByTimeout: typeName = "kCGEventTapDisabledByTimeout"; break;
+    case kCGEventTapDisabledByUserInput: typeName = "kCGEventTapDisabledByUserInput"; break;
+    default: break;
+    }
+
+    if (type == kCGEventKeyDown)
+        direction = "down";
+    else if (type == kCGEventKeyUp)
+        direction = "up";
+    else if (type == kCGEventFlagsChanged)
+        direction = "flags-changed";
+
+    if (0 <= keyCode && keyCode < VKC_COUNT)
+        keyFlag = SpecialKeys[keyCode].flag;
+
+    printf(
+        "\nCGEvent {\n"
+        "  type: %u (%s),\n"
+        "  direction: %s,\n"
+        "  keyCode: %lld,\n"
+        "  keyFlag: 0x%llx,\n"
+        "  keyFlagActive: %s,\n"
+        "  flags: 0x%llx,\n"
+        "  flagsDecoded: [%s%s%s%s%s%s%s%s],\n"
+        "  curFlags: 0x%llx,\n"
+        "  autorepeat: %lld,\n"
+        "  keyboardType: %lld,\n"
+        "  userData: %lld%s,\n"
+        "  timestamp: %llu,\n"
+        "  location: { x: %.1f, y: %.1f }\n"
+        "}\n",
+        (unsigned int)type,
+        typeName,
+        direction,
+        (long long)keyCode,
+        (unsigned long long)keyFlag,
+        keyFlag && (flags & keyFlag) ? "true" : "false",
+        (unsigned long long)flags,
+        flags & kCGEventFlagMaskAlphaShift ? "alphaShift " : "",
+        flags & kCGEventFlagMaskShift ? "shift " : "",
+        flags & kCGEventFlagMaskControl ? "control " : "",
+        flags & kCGEventFlagMaskAlternate ? "option " : "",
+        flags & kCGEventFlagMaskCommand ? "command " : "",
+        flags & kCGEventFlagMaskNumericPad ? "numericPad " : "",
+        flags & kCGEventFlagMaskHelp ? "help " : "",
+        flags & kCGEventFlagMaskSecondaryFn ? "fn " : "",
+        (unsigned long long)CurFlags,
+        (long long)autorepeat,
+        (long long)keyboardType,
+        (long long)userData,
+        userData == kRLUserDataEventInjected ? " (injected)" : "",
+        (unsigned long long)CGEventGetTimestamp(event),
+        location.x,
+        location.y
+    );
+}

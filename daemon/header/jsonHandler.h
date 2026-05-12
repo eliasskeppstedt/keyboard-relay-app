@@ -1,16 +1,17 @@
 #ifndef JSONHANDLER_H
 #define JSONHANDLER_H
 
-#include "../header/types.h"
-#include "../header/constants.h"
+#include "types.h"
+#include "constants.h"
+#include "eventQueue.h"
 #include "../lib/cJSON.h"
 
-ReturnMsg loadFile(char* path);
+RLError loadFile(char* path);
 KeyMapping* initKeyMapInfo();
 KeyStatus* initKeyMapStatus();
-EventQueue* initEventQueue();
-ReturnMsg populateMappingTable(KeyMapping* keyMapInfo) ;
-ReturnMsg loadSettings(Settings* settings);
+RLEventQueue initEventQueue();
+RLError populateMappingTable(KeyMapping* keyMapInfo) ;
+RLError loadSettings(Settings* settings);
 void deleteJson();
 
 #endif // JSONHANDLER_H

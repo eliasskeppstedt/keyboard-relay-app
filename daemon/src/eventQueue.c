@@ -1,48 +1,47 @@
+// src/eventQueue.c
+
 #include <stdio.h>
 #include "../header/eventQueue.h" 
 
-EventQueue* Queue;
+RLEventQueue* Queue;
 
-ReturnMsg push(KeyEvent* event)
+RLError push(RLEvent* event)
 {
     size_t oldHead = Queue->head;
     size_t next = (oldHead + 1) % MAX_QUEUE_SIZE;
 
     if (next == Queue->tail) 
-        return RETURN_MSG_QUEUE_FULL;
+        return kRLErrorQueueFull;
 
     Queue->buffer[oldHead] = event;
     Queue->head = next;
 
-    return RETURN_MSG_OK;
+    return kRLErrorNone;
 }
 
-ReturnValue pop()
+RLEvent* pop()
 {
     size_t oldTail = Queue->tail;
     if (Queue->head == oldTail)
-    {
-        return (ReturnValue){
-            .value.event = NULL,
-            .msg = RETURN_MSG_QUEUE_EMPTY
-        };
-    }
+        return NULL;
 
     Queue->tail = (oldTail + 1) % MAX_QUEUE_SIZE;
 
-    return (ReturnValue){
-        .value.event = Queue->buffer[oldTail],
-        .msg = RETURN_MSG_OK
-    };
+    RLEvent* event = Queue->buffer[oldTail];
+    Queue->buffer[oldTail] = NULL;
+
+    return event;
 }
 
-KeyEvent* peek()
+RLEvent* peek()
 {
-    return Queue->buffer[Queue->head];
+    if (Queue->head == Queue->tail)
+        return NULL;
+    return Queue->buffer[Queue->tail];
 }
 
 
-void setQueue(EventQueue* queue)
+void setQueue(RLEventQueue* queue)
 {
     Queue = queue;
 }

@@ -3,15 +3,16 @@
 
 #include <stdint.h>
 
-#define PRINT_BOOL(bool) printf("%s\n", bool ? "true" : "false");
-#define INFO_EVENT_INJECTED 1
+#define PRINT_BOOL(str, bool) printf("%s: %s\n", str, bool ? "true" : "false");
 
 #define VKC_COUNT 256
 #define UNICODE_COUNT 0x10FFFF
 #define NO_CODE 300
-#define UNICODE_MAX_CODE_POINTS 22
+#define UNICODE_MAX_CODE_POINTS 4
 
 #ifdef _WIN32
+
+#define Esc = 0x1B; // 
 
 #define LSHIFT          0xa0 // VK_LSHIFT
 #define RSHIFT          0xa1 // VK_RSHIFT
@@ -20,46 +21,61 @@
 #define LALT            0xa4 // VK_LMENU
 #define RALT            0xa5 // VK_RMENU
 
-#endif // _WIN32
+#elif defined __APPLE__
 
-typedef enum ModifierKeys{
-    MODIFIERKEY_LEFT_SHIFT, 
-    MODIFIERKEY_RIGHT_SHIFT,
-    MODIFIERKEY_LEFT_CTRL,
-    MODIFIERKEY_RIGHT_CTRL,
-    MODIFIERKEY_LEFT_ALT,
-    MODIFIERKEY_RIGHT_ALT,
-    MODIFIERKEY_COUNT,
-    MODIFIERKEY_NOT_MODIFIER,
-} ModifierKeys;
+#define Esc 0x35 // change when gui is implemented (Qt)
 
-typedef enum KeyType{
-    KEYTYPE_VIRTUAL_KEYCODE_PASSTHROUGH = 0,
-    KEYTYPE_VIRTUAL_KEYCODE,
-    KEYTYPE_UNICODE,
-    KEYTYPE_MODIFIER,
-    KEYTYPE_COUNT
-} KeyType;
+#define Autorepeat 8 // kCGEventKeyboardAutorepeat
+#define NullEvent 0 // kcgeventnull
 
-typedef enum ReturnMsg{
-    RETURN_MSG_OK = 0,
-    RETURN_MSG_BAD_HOOK,
-    RETURN_MSG_QUIT_BY_USER,
-    RETURN_MSG_SYNT_EVENT,
-    RETURN_MSG_SYNT_EVENT_FAILED,
-    RETURN_MSG_QUEUE_FULL,
-    RETURN_MSG_QUEUE_EMPTY,
-    RETURN_MSG_EVENT_NOT_FOUND,
-    RETURN_MSG_INVALID_UNICODE,
-    RETURN_MSG_MODIFIER_KEY,
-    RETURN_MSG_KEY_UP,
-    RETURN_MSG_RUN_ORIGINAL_EVENT,
-    RETURN_MSG_FILE_ERROR,
-    RETURN_MSG_JSON_ERROR,
-    RETURN_MSG_MODIFIER_ERROR,
-    RETURN_MSG_COUNT
-} ReturnMsg;
+#endif
 
 #define MAX_QUEUE_SIZE 101
+
+typedef enum RLOutputType{
+    kRLOutputTypeKeyCode = 0,
+    kRLOutputTypeUnicode = 1,
+    kRLOutputTypeNone = 2,
+} RLOutputType;
+
+typedef enum RLInputEventKind {
+    kRLInputEventKindKeyboard = 0,
+    kRLInputEventKindHoldTimer = 1,
+} RLInputEventKind;
+
+typedef enum RLActionType {
+    kRLActionTypePress = 0,
+    kRLActionTypePendingHold = 1,
+    kRLActionTypeHold = 2,
+} RLActionType;
+
+typedef enum RLHandleResult {
+    kRLHandleResultHandled = 0,
+    kRLHandleResultPendingHold = 1,
+    kRLHandleResultPassThrough = 2,
+    kRLHandleResultError = 3,
+} RLHandleResult;
+
+typedef enum RLUserData {
+    kRLUserDataNone = 0,
+    kRLUserDataEventInjected = 1,
+    kRLUserDataToggleKey = 2,
+} RLUserData;
+
+typedef enum RLError {
+    kRLErrorNone = 0,
+    kRLErrorBadHook = -1,
+    kRLErrorQuitByUser = -2,
+    kRLErrorSyntheticEventFailed = -3,
+    kRLErrorQueueFull = -4,
+    //kRLErrorQueueEmpty = -5,
+    kRLErrorEventNotFound = -6,
+    kRLErrorInvalidUnicode = -7,
+    kRLErrorFile = -8,
+    kRLErrorJson = -9,
+    kRLErrorRunDaemon = -10,
+    kRLErrorMallocFailed = -11,
+    kRLErrorTimerFailed = -12,
+} RLError;
 
 #endif // CONSTANTS_H
